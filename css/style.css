@@ -319,8 +319,9 @@
             min-height: 80px;
         }
         .bullet-editor:focus-within { border-color: var(--border-subtle); }
-        .bullet-row { display: flex; align-items: flex-start; gap: 8px; }
+        .bullet-row { display: flex; align-items: flex-start; gap: 8px; transition: margin-left 0.12s ease; }
         .bullet-dot { width: 4px; height: 4px; margin-top: 10px; border-radius: 50%; background: var(--text-muted); opacity: 0.6; flex-shrink: 0; }
+        .bullet-dot--sub { width: 3px; height: 3px; opacity: 0.35; }
         .bullet-input {
             flex: 1; min-width: 0; border: none; background: transparent; resize: none; outline: none;
             font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--text-strong);
@@ -332,6 +333,7 @@
         .bullet-line { display: flex; align-items: flex-start; gap: 6px; }
         .bullet-line + .bullet-line { margin-top: 3px; }
         .bullet-line-dot { width: 4px; height: 4px; margin-top: 7px; border-radius: 50%; background: var(--text-muted); opacity: 0.6; flex-shrink: 0; }
+        .bullet-line-dot--sub { width: 3px; height: 3px; opacity: 0.35; }
         .bullet-line-text { flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
 
         /* Color Picker */

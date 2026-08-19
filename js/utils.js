@@ -67,16 +67,35 @@
         return `<span class="status-pill status-pill--${info.cls}">${info.label}</span>`;
     }
 
+    // Bullets can carry an indent level, encoded as leading tab characters (one \t per level).
+    // This keeps the on-disk format a plain string array while supporting nested sub-bullets.
+    function parseBulletLevel(raw) {
+        const str = raw || '';
+        const match = /^(\t+)/.exec(str);
+        const level = match ? match[1].length : 0;
+        const text = str.replace(/^\t+/, '').replace(/^[•\-\*]\s*/, '');
+        return { level, text };
+    }
+
     function buildBulletHTML(arr) { 
         if(!arr || !arr.length) return '';
-        const uniqueArr = [...new Set(arr.map(b => b.replace(/^[•\-\*]\s*/, '')))];
-        return `<ul class="clean-list">${uniqueArr.map(b => `<li>${escapeHtml(b).replace(/\n/g, '<br>')}</li>`).join('')}</ul>`; 
+        const uniqueArr = [...new Set(arr)];
+        return `<ul class="clean-list">${uniqueArr.map(b => {
+            const { level, text } = parseBulletLevel(b);
+            const indentStyle = level > 0 ? ` style="margin-left:${level * 16}px;"` : '';
+            return `<li${indentStyle}>${escapeHtml(text).replace(/\n/g, '<br>')}</li>`;
+        }).join('')}</ul>`; 
     }
 
     function buildDotLines(arr) {
         if(!arr || !arr.length) return '-';
-        const uniqueArr = [...new Set(arr.map(b => b.replace(/^[•\-\*]\s*/, '')))];
-        return uniqueArr.map(b => `<div class="bullet-line"><span class="bullet-line-dot"></span><span class="bullet-line-text">${escapeHtml(b).replace(/\n/g, '<br>')}</span></div>`).join('');
+        const uniqueArr = [...new Set(arr)];
+        return uniqueArr.map(b => {
+            const { level, text } = parseBulletLevel(b);
+            const indentStyle = level > 0 ? ` style="margin-left:${level * 16}px;"` : '';
+            const dotClass = level > 0 ? 'bullet-line-dot bullet-line-dot--sub' : 'bullet-line-dot';
+            return `<div class="bullet-line"${indentStyle}><span class="${dotClass}"></span><span class="bullet-line-text">${escapeHtml(text).replace(/\n/g, '<br>')}</span></div>`;
+        }).join('');
     }
 
     // Splits raw text into bullets (used only for pasted multi-line text inside a row).
@@ -89,12 +108,15 @@
 
     // Obsidian-style bullet list editor: each bullet is its own row with a
     // visual "•" marker to its left (not typed text). Enter creates a new
-    // bullet row; Shift+Enter inserts a soft line break within the same
-    // bullet; Backspace at the start of a row merges it into the previous one.
+    // bullet row (inheriting the current row's indent level); Shift+Enter
+    // inserts a soft line break within the same bullet; Tab indents the
+    // current row into a sub-bullet of the previous row (Shift+Tab outdents);
+    // Backspace at the start of a row merges it into the previous one.
     function createBulletEditor(containerEl, options = {}) {
         if (!containerEl) return null;
         containerEl.classList.add('bullet-editor');
         containerEl.innerHTML = '';
+        const INDENT_PX = 20;
 
         function autoResize(ta) {
             ta.style.height = 'auto';
@@ -105,13 +127,32 @@
             return Array.from(containerEl.querySelectorAll('.bullet-input'));
         }
 
+        function getRowEls() {
+            return Array.from(containerEl.querySelectorAll('.bullet-row'));
+        }
+
+        function getLevel(rowEl) { return parseInt(rowEl.dataset.level || '0', 10); }
+
+        function applyIndent(rowEl) {
+            const level = getLevel(rowEl);
+            rowEl.style.marginLeft = level > 0 ? (level * INDENT_PX) + 'px' : '';
+            const dot = rowEl.querySelector('.bullet-dot');
+            if (dot) dot.classList.toggle('bullet-dot--sub', level > 0);
+        }
+
+        function setLevel(rowEl, level) {
+            rowEl.dataset.level = String(Math.max(0, level));
+            applyIndent(rowEl);
+        }
+
         function emitChange() {
             if (options.onChange) options.onChange(controller.getBullets());
         }
 
-        function buildRow(text) {
+        function buildRow(text, level) {
             const row = document.createElement('div');
             row.className = 'bullet-row';
+            row.dataset.level = String(level || 0);
             const dot = document.createElement('span');
             dot.className = 'bullet-dot';
             const ta = document.createElement('textarea');
@@ -121,14 +162,26 @@
             if (options.placeholder) ta.placeholder = options.placeholder;
             row.appendChild(dot);
             row.appendChild(ta);
+            applyIndent(row);
 
             ta.addEventListener('input', () => { autoResize(ta); emitChange(); });
             ta.addEventListener('click', (e) => e.stopPropagation());
 
             ta.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Tab') {
                     e.preventDefault();
-                    const newRow = buildRow('');
+                    const rowEls = getRowEls();
+                    const idx = rowEls.indexOf(row);
+                    if (e.shiftKey) {
+                        setLevel(row, getLevel(row) - 1);
+                    } else if (idx > 0) {
+                        const prevLevel = getLevel(rowEls[idx - 1]);
+                        setLevel(row, Math.min(getLevel(row) + 1, prevLevel + 1));
+                    }
+                    emitChange();
+                } else if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const newRow = buildRow('', getLevel(row));
                     row.after(newRow);
                     autoResize(newRow.querySelector('.bullet-input'));
                     newRow.querySelector('.bullet-input').focus();
@@ -154,11 +207,22 @@
         }
 
         const controller = {
-            getBullets: () => getRows().map(t => t.value.trim()).filter(v => v.length > 0),
+            getBullets: () => getRowEls().map(rowEl => {
+                const ta = rowEl.querySelector('.bullet-input');
+                const text = ta.value.trim();
+                if (!text) return null;
+                const level = getLevel(rowEl);
+                return (level > 0 ? '\t'.repeat(level) : '') + text;
+            }).filter(Boolean),
             setBullets: (arr) => {
                 containerEl.innerHTML = '';
                 const list = (arr && arr.length) ? arr : [''];
-                list.forEach(b => containerEl.appendChild(buildRow(b)));
+                list.forEach(raw => {
+                    const match = /^(\t+)/.exec(raw || '');
+                    const level = match ? match[1].length : 0;
+                    const text = (raw || '').replace(/^\t+/, '');
+                    containerEl.appendChild(buildRow(text, level));
+                });
                 getRows().forEach(autoResize);
             },
             focus: () => {

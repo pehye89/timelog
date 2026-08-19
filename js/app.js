@@ -1,10 +1,12 @@
     document.addEventListener("DOMContentLoaded", () => {
         initData(); goToToday(); loadSettings();
         sessionBulletEditor = createBulletEditor(document.getElementById('sessionBullets'), {
-            placeholder: '작업 내용을 메모하세요 (종료 시 자동 저장)',
+            placeholder: '지금 하는 일을 기록하세요',
             onChange: autoSaveSessionBullets
         });
-        manualAddBulletEditor = createBulletEditor(document.getElementById('manualAddBullets'), {});
+        manualAddBulletEditor = createBulletEditor(document.getElementById('manualAddBullets'), {
+            placeholder: '무엇을 했는지 입력하세요'
+        });
         renderAll(); checkActiveTimer();
         document.addEventListener('mouseup', endPaint);
     });
