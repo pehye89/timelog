@@ -20,6 +20,18 @@
         renderWeekly();
     }
 
+    // ---- Search & Period Filter ----
+    function updateWeeklySearch(val) { filters.weekly.search = val; renderWeekly(); }
+    function updateWeeklyDateFrom(val) { filters.weekly.dateFrom = val; renderWeekly(); }
+    function updateWeeklyDateTo(val) { filters.weekly.dateTo = val; renderWeekly(); }
+    function clearWeeklyFilter() {
+        filters.weekly = { search: '', dateFrom: '', dateTo: '' };
+        document.getElementById('weeklySearchInput').value = '';
+        document.getElementById('weeklyDateFrom').value = '';
+        document.getElementById('weeklyDateTo').value = '';
+        renderWeekly();
+    }
+
     function renderWeeklySummary(weekHistory) {
         const container = document.getElementById('weeklySummaryContainer');
         const emptyMsg = document.getElementById('weeklySummaryEmptyMsg');
@@ -31,7 +43,7 @@
             totalsByJob[h.jobId].ms += h.durationMs || 0;
         });
 
-        const jobIds = Object.keys(totalsByJob);
+        const jobIds = Object.keys(totalsByJob).filter(id => matchesSearch(totalsByJob[id], filters.weekly.search));
 
         if (jobIds.length === 0) {
             container.innerHTML = '';
@@ -41,7 +53,7 @@
         if (emptyMsg) emptyMsg.style.display = 'none';
 
         const sortedIds = jobIds.sort((a, b) => totalsByJob[b].ms - totalsByJob[a].ms);
-        const grandTotalMs = jobIds.reduce((sum, id) => sum + totalsByJob[id].ms, 0);
+        const grandTotalMs = sortedIds.reduce((sum, id) => sum + totalsByJob[id].ms, 0);
 
         let html = `
             <div class="flex-between summary-total-row">
@@ -74,21 +86,27 @@
         
         document.getElementById('weeklyDateRangeText').innerText = getWeekOfMonthStr(d);
         
-        const presets = getPresets();
+        const f = filters.weekly;
+        const presets = getPresets().filter(p => p.status !== 'deleted');
         const history = getHistory();
-        const weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
+        let weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
+        if (f.dateFrom || f.dateTo) weekHistory = weekHistory.filter(h => inDateRange(h.date, f.dateFrom, f.dateTo));
 
         renderWeeklySummary(weekHistory);
 
         const c = document.getElementById('weeklyContainer'); c.innerHTML = '';
 
-        const sortedPresets = [...presets].sort((a, b) => {
-            if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
-            return (a.opsCode || '').localeCompare(b.opsCode || '');
-        });
+        const statusOrder = { active: 0, admin: 1, completed: 2 };
+        const sortedPresets = [...presets]
+            .filter(p => matchesSearch(p, f.search))
+            .sort((a, b) => {
+                const oa = statusOrder[a.status] ?? 3; const ob = statusOrder[b.status] ?? 3;
+                if (oa !== ob) return oa - ob;
+                return (a.opsCode || '').localeCompare(b.opsCode || '');
+            });
 
         if(sortedPresets.length === 0) {
-            return c.innerHTML = '<div class="empty-state">등록된 운영이 없습니다.</div>';
+            return c.innerHTML = '<div class="empty-state">해당하는 운영이 없습니다.</div>';
         }
 
         let renderedCount = 0;
@@ -121,10 +139,23 @@
                 });
                 datesTreeHtml += '</table>';
             } else {
-                datesTreeHtml = '<div class="log-detail-empty">기록된 업무가 없습니다.</div>';
+                datesTreeHtml = '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
             }
 
             const isDone = job.status === 'completed';
+            const isAdmin = job.status === 'admin';
+
+            let datesRowHtml;
+            if (isAdmin) {
+                datesRowHtml = `<div class="job-panel-dates"><span class="badge-admin">상시 진행</span></div>`;
+            } else {
+                datesRowHtml = `
+                    <div class="job-panel-dates">
+                        <strong>시작</strong> ${job.startDate || '-'}
+                        <span class="sep">·</span>
+                        <strong>완료</strong> ${job.endDate || '-'}
+                    </div>`;
+            }
 
             c.innerHTML += `
                 <div class="job-panel">
@@ -139,18 +170,14 @@
                                 <div class="truncate-line">
                                     ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
                                 </div>
-                                <div class="job-panel-dates">
-                                    <strong>시작</strong> ${job.startDate || '-'}
-                                    <span class="sep">·</span>
-                                    <strong>완료</strong> ${job.endDate || '-'}
-                                </div>
+                                ${datesRowHtml}
                             </div>
                         </div>
                         <div class="job-panel-actions">
                             <span class="job-panel-total">
                                 총 ${formatDuration(totalMs)}
                             </span>
-                            <button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>
+                            ${isAdmin ? '' : `<button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>`}
                         </div>
                     </div>
 
@@ -161,6 +188,6 @@
         });
 
         if (renderedCount === 0) {
-            c.innerHTML = '<div class="empty-state">이번 주 기록된 운영이 없습니다.</div>';
+            c.innerHTML = '<div class="empty-state">해당 조건에 기록된 운영이 없습니다.</div>';
         }
     }

@@ -22,12 +22,29 @@
         const sel = selectedDate || document.getElementById('hiddenDateInput').value || getTodayIso();
         return getPresets().filter(p => {
             if (p.status === 'active') return true;
+            if (p.status === 'admin') return true;
             if (p.status === 'completed') {
                 if (!p.endDate) return true;
                 return p.endDate >= sel;
             }
             return false;
         });
+    }
+
+    // Returns true if the job's opsCode/opsName/taskCode/taskName contains the search term (case-insensitive).
+    function matchesSearch(job, search) {
+        if (!search) return true;
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        const haystack = [job.opsCode, job.opsName, job.taskCode, job.taskName].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(q);
+    }
+
+    // Returns true if dateStr (YYYY-MM-DD) falls within [from, to] (inclusive). Empty bounds are unbounded.
+    function inDateRange(dateStr, from, to) {
+        if (from && dateStr < from) return false;
+        if (to && dateStr > to) return false;
+        return true;
     }
 
     function buildBulletHTML(arr) { 

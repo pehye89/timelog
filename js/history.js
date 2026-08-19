@@ -1,3 +1,14 @@
+    // ---- Period Filter (shared search state lives in filters.tracker) ----
+    function updateTrackerDateFrom(val) { filters.tracker.dateFrom = val; renderHistory(); }
+    function updateTrackerDateTo(val) { filters.tracker.dateTo = val; renderHistory(); }
+    function clearTrackerFilter() {
+        filters.tracker = { search: '', dateFrom: '', dateTo: '' };
+        ['trackerListSearchInput', 'trackerLogSearchInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const fromEl = document.getElementById('trackerDateFrom'); if (fromEl) fromEl.value = '';
+        const toEl = document.getElementById('trackerDateTo'); if (toEl) toEl.value = '';
+        renderTodoList(); renderHistory();
+    }
+
     // Render Timer Log History in Clean Timeline Style
     function renderHistory() {
         const selectedDate = document.getElementById('hiddenDateInput').value;
@@ -8,13 +19,21 @@
         if(!container) return;
         container.innerHTML = '';
 
-        if (dayHistory.length === 0) {
-            container.innerHTML = `<div class="empty-state empty-state--compact">작성된 타임로그가 없습니다.</div>`;
+        const f = filters.tracker;
+        const isRangeMode = !!(f.dateFrom || f.dateTo);
+        let sourceHistory = isRangeMode
+            ? getHistory().filter(item => inDateRange(item.date, f.dateFrom, f.dateTo))
+            : dayHistory;
+        sourceHistory = sourceHistory.filter(item => matchesSearch(item, f.search));
+
+        if (sourceHistory.length === 0) {
+            const msg = (isRangeMode || f.search) ? '조건에 맞는 타임로그가 없습니다.' : '작성된 타임로그가 없습니다.';
+            container.innerHTML = `<div class="empty-state empty-state--compact">${msg}</div>`;
             return;
         }
 
         const grouped = {};
-        dayHistory.forEach(item => {
+        sourceHistory.forEach(item => {
             if (!grouped[item.jobId]) {
                 grouped[item.jobId] = {
                     jobId: item.jobId,
@@ -29,7 +48,7 @@
         });
 
         Object.values(grouped).forEach(group => {
-            group.logs.sort((a, b) => a.startTime.localeCompare(b.startTime));
+            group.logs.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
             const totalMs = group.logs.reduce((sum, l) => sum + (l.durationMs || 0), 0);
 
             let treeHtml = '<div class="log-tree">';
@@ -38,11 +57,13 @@
                     ? buildDotLines(row.bullets)
                     : '';
                 const durationStr = formatDuration(row.durationMs);
+                const dateLabel = isRangeMode ? `<span class="log-node-date">${row.date.slice(5)}</span>` : '';
 
                 treeHtml += `
                     <div class="log-tree-node">
                         <div class="log-node-main">
-                            <span class="log-node-time">${row.startTime}-${row.endTime}</span>
+                            ${dateLabel}
+                            <span class="log-node-time" onclick="openEditLogTime(${row.id})" title="클릭하여 시간 수정">${row.startTime}-${row.endTime}</span>
                             <span class="log-node-duration">${durationStr}</span>
                             <div class="editable-content log-node-content" onclick="makeEditable(${row.id}, this)">${bulletsHtml}</div>
                         </div>
@@ -93,4 +114,56 @@
         });
 
         editor.focus();
+    }
+
+    // ---- Inline time-range editing for a timelog entry ----
+    function openEditLogTime(id) {
+        const item = getHistory().find(h => h.id === id); if (!item) return;
+        document.getElementById('editLogTimeId').value = id;
+        document.getElementById('editLogTimeDateLabel').innerText = item.date;
+        document.getElementById('editLogTimeStart').value = item.startTime;
+        document.getElementById('editLogTimeEnd').value = item.endTime;
+        updateEditLogTimeDuration();
+        openModal('editLogTimeModal');
+    }
+
+    function updateEditLogTimeDuration() {
+        const s = document.getElementById('editLogTimeStart').value;
+        const e = document.getElementById('editLogTimeEnd').value;
+        const el = document.getElementById('editLogTimeDurationText');
+        if (!s || !e) { el.innerText = '-'; el.classList.remove('text-error'); return; }
+        const diff = timeToMins(e) - timeToMins(s);
+        if (diff <= 0) {
+            el.innerText = '종료 시간은 시작 시간보다 늦어야 합니다';
+            el.classList.add('text-error');
+            return;
+        }
+        el.classList.remove('text-error');
+        el.innerText = `총 ${diff}분`;
+    }
+
+    function saveEditLogTime() {
+        const id = parseInt(document.getElementById('editLogTimeId').value, 10);
+        const s = document.getElementById('editLogTimeStart').value;
+        const e = document.getElementById('editLogTimeEnd').value;
+        if (!s || !e) return alert('시간을 입력해주세요.');
+        if (timeToMins(e) <= timeToMins(s)) return alert('종료 시간은 시작 시간보다 늦어야 합니다.');
+
+        const history = getHistory(); const idx = history.findIndex(h => h.id === id);
+        if (idx === -1) return;
+        const item = history[idx];
+
+        const hasConflict = history.some(h => h.id !== id && h.date === item.date &&
+            !(timeToMins(e) <= timeToMins(h.startTime) || timeToMins(s) >= timeToMins(h.endTime)));
+        if (hasConflict && !confirm('선택한 시간대가 다른 기록과 겹칩니다. 계속 저장하시겠습니까?')) return;
+
+        const sObj = new Date(`${item.date}T${s}:00`);
+        const eObj = new Date(`${item.date}T${e}:00`);
+        item.startTime = s; item.endTime = e;
+        item.startTimeObj = sObj.toISOString(); item.endTimeObj = eObj.toISOString();
+        item.durationMs = eObj - sObj;
+
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        closeModal('editLogTimeModal');
+        renderAll();
     }

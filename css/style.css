@@ -542,6 +542,19 @@
         /* Folder Tabs for Management */
         .folder-tabs { display: flex; gap: var(--space-3); padding-left: 0; margin-bottom: 0; }
         .folder-tab { background: var(--border-subtle); border: none; color: var(--text-muted); padding: 10px var(--space-10); font-size: var(--fs-sm); font-weight: var(--fw-bold); cursor: pointer; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transition: var(--transition); }
+        .folder-tab--icon {
+            margin-left: auto;
+            background: transparent;
+            color: var(--text-muted);
+            padding: var(--space-4);
+            width: var(--icon-btn-size-sm);
+            height: var(--icon-btn-size-sm);
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+        .folder-tab--icon:hover { opacity: 1; background: var(--bg-subtle); color: var(--text-strong); }
+        .folder-tab--icon.active { opacity: 1; background: var(--border-subtle); color: var(--text-strong); }
         .folder-tab:hover { background: var(--border-strong); color: var(--text-strong); }
         body.dark-mode .folder-tab:hover { background: #475569; }
         .folder-tab.active { background: var(--bg-surface); color: var(--text-strong); }
@@ -631,3 +644,55 @@
             font-size: var(--fs-xs);
             font-weight: var(--fw-semibold);
         }
+
+        /* Search & Period Filter Bar */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-6);
+            flex-wrap: wrap;
+            padding: var(--space-5) var(--space-6);
+            background: var(--bg-subtle);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-8);
+        }
+        .filter-bar--search-only { padding: 0; background: transparent; margin-bottom: var(--space-6); }
+        .filter-search-input {
+            flex: 1;
+            min-width: 140px;
+            width: auto;
+            padding: var(--space-4) var(--space-6);
+            font-size: var(--fs-sm);
+        }
+        .filter-dates { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+        .filter-dates input[type="date"] { width: 150px; padding: var(--space-4) var(--space-5); font-size: var(--fs-sm); }
+        .filter-dates-sep { color: var(--text-muted); font-size: var(--fs-xs); }
+        .filter-clear-btn { flex-shrink: 0; }
+
+        /* Status badges (관리업무 / 삭제됨) */
+        .badge-admin, .badge-deleted {
+            display: inline-flex;
+            align-items: center;
+            font-size: var(--fs-2xs);
+            font-weight: var(--fw-bold);
+            padding: var(--space-1) var(--space-5);
+            border-radius: var(--radius-full);
+        }
+        .badge-admin { background: var(--accent-light); color: var(--text-strong); }
+        .badge-deleted { background: var(--bg-subtle); color: var(--text-muted); }
+        .job-panel.is-deleted { opacity: 0.7; }
+
+        /* Clickable time range on a timelog entry */
+        .log-node-time {
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 1px var(--space-2);
+            transition: var(--transition);
+        }
+        .log-node-time:hover { background: var(--bg-subtle); color: var(--text-strong); text-decoration: underline; }
+        .log-node-date { font-size: var(--fs-2xs); font-weight: var(--fw-bold); color: var(--text-muted); flex-shrink: 0; padding-top: 1px; }
+
+        /* Small modal variant + live duration readout */
+        .modal-box--sm { max-width: 380px; }
+        .duration-live { font-size: var(--fs-lg); font-weight: var(--fw-black); color: var(--text-strong); text-align: center; padding: var(--space-6) 0; }
+        .text-error { color: var(--red); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }

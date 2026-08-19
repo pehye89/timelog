@@ -2,12 +2,29 @@
         mgmtStatusTab = status; mgmtCurrentPage = 1;
         document.getElementById('mgmtTabActive').classList.toggle('active', status === 'active');
         document.getElementById('mgmtTabCompleted').classList.toggle('active', status === 'completed');
-        document.getElementById('mgmtTitle').innerText = status === 'active' ? '진행 중인 운영' : '완료된 운영';
+        document.getElementById('mgmtTabAdmin').classList.toggle('active', status === 'admin');
+        document.getElementById('mgmtTabDeleted').classList.toggle('active', status === 'deleted');
+        const titles = { active: '진행 중인 운영', completed: '완료된 운영', admin: '관리업무', deleted: '삭제된 운영' };
+        document.getElementById('mgmtTitle').innerText = titles[status] || '운영 목록';
+        document.getElementById('mgmtBulkBtns').classList.toggle('hidden', status === 'deleted');
         renderManagement();
     }
-    
+
     function changeMgmtPage(page) { mgmtCurrentPage = page; renderManagement(); }
-    
+
+    // ---- Search & Period Filter ----
+    function updateMgmtSearch(val) { filters.management.search = val; mgmtCurrentPage = 1; renderManagement(); }
+    function updateMgmtDateFrom(val) { filters.management.dateFrom = val; renderManagement(); }
+    function updateMgmtDateTo(val) { filters.management.dateTo = val; renderManagement(); }
+    function clearMgmtFilter() {
+        filters.management = { search: '', dateFrom: '', dateTo: '' };
+        document.getElementById('mgmtSearchInput').value = '';
+        document.getElementById('mgmtDateFrom').value = '';
+        document.getElementById('mgmtDateTo').value = '';
+        mgmtCurrentPage = 1;
+        renderManagement();
+    }
+
     function toggleStatus(id) {
         const p = getPresets(); const i = p.findIndex(x => x.id === id);
         if(i > -1) { 
@@ -24,28 +41,61 @@
         }
     }
 
+    // Soft delete: moves the preset into the "삭제된 운영" tab, kept for DELETED_RETENTION_DAYS days.
     function deleteJobFromEditModal() {
         const id = parseInt(document.getElementById('editJobId').value, 10);
         if (!id) return;
-        if(confirm('삭제된 운영의 기록들도 함께 삭제됩니다. 정말 삭제하시겠습니까?')) {
-            const p = getPresets().filter(x => x.id !== id);
-            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
-            const h = getHistory().filter(x => x.jobId !== id);
-            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(h));
+        if(confirm('해당 운영을 삭제할까요? 삭제된 운영은 ' + DELETED_RETENTION_DAYS + '일간 "삭제된 운영" 탭에 보관되며, 그 안에 복구할 수 있습니다.')) {
+            const p = getPresets(); const idx = p.findIndex(x => x.id === id);
+            if (idx > -1) {
+                p[idx].previousStatus = p[idx].status;
+                p[idx].status = 'deleted';
+                p[idx].deletedAt = new Date().toISOString();
+                localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+            }
             closeModal('editJobModal');
             renderAll();
         }
     }
 
+    function restoreJob(id) {
+        const p = getPresets(); const idx = p.findIndex(x => x.id === id);
+        if (idx > -1) {
+            p[idx].status = p[idx].previousStatus || 'active';
+            delete p[idx].deletedAt;
+            delete p[idx].previousStatus;
+            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+            renderAll();
+        }
+    }
+
+    function permanentlyDeleteJob(id) {
+        if (!confirm('영구 삭제하면 되돌릴 수 없습니다. 해당 운영과 관련 기록을 완전히 삭제할까요?')) return;
+        const p = getPresets().filter(x => x.id !== id);
+        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+        const h = getHistory().filter(x => x.jobId !== id);
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(h));
+        renderAll();
+    }
+
     function toggleHistoryExpand(id) { jobCollapseState[id] = !jobCollapseState[id]; renderManagement(); }
     function toggleAllManagement(expand) { getPresets().filter(p => p.status === mgmtStatusTab).forEach(job => jobCollapseState[job.id] = expand); renderManagement(); }
+
+    function daysRemaining(deletedAt) {
+        const elapsedMs = Date.now() - new Date(deletedAt).getTime();
+        const remaining = DELETED_RETENTION_DAYS - Math.floor(elapsedMs / (24 * 60 * 60 * 1000));
+        return Math.max(remaining, 0);
+    }
 
     function renderManagement() {
         if(document.getElementById('tabManagementView').classList.contains('hidden')) return;
 
+        const f = filters.management;
         const allPresets = getPresets(); const c = document.getElementById('jobManagementContainer'); c.innerHTML = '';
         const allHistory = getHistory();
-        const filteredJobs = allPresets.filter(p => p.status === mgmtStatusTab);
+        const filteredJobs = allPresets
+            .filter(p => p.status === mgmtStatusTab)
+            .filter(p => matchesSearch(p, f.search));
         const totalPages = Math.ceil(filteredJobs.length / MGMT_ITEMS_PER_PAGE) || 1;
         if(mgmtCurrentPage > totalPages) mgmtCurrentPage = totalPages;
         const pageJobs = filteredJobs.slice((mgmtCurrentPage - 1) * MGMT_ITEMS_PER_PAGE, mgmtCurrentPage * MGMT_ITEMS_PER_PAGE);
@@ -53,13 +103,18 @@
         if(pageJobs.length === 0) c.innerHTML = '<div class="empty-state">해당하는 항목이 없습니다.</div>';
 
         pageJobs.forEach(job => {
-            const isDone = job.status === 'completed'; const expanded = !!jobCollapseState[job.id];
-            const logs = allHistory.filter(h => h.jobId === job.id); const jobColor = job.color || '#334155';
-            
+            const isDone = job.status === 'completed';
+            const isAdmin = job.status === 'admin';
+            const isDeleted = job.status === 'deleted';
+            const expanded = !!jobCollapseState[job.id];
+            let logs = allHistory.filter(h => h.jobId === job.id);
+            if (f.dateFrom || f.dateTo) logs = logs.filter(l => inDateRange(l.date, f.dateFrom, f.dateTo));
+            const jobColor = job.color || '#334155';
+
             let logsHtml = '';
             if(expanded) {
                 if(logs.length === 0) {
-                    logsHtml = '<div class="log-detail-empty">기록된 업무가 없습니다.</div>';
+                    logsHtml = '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
                 } else {
                     const datesGroup = {};
                     logs.forEach(l => {
@@ -78,8 +133,35 @@
                 }
             }
 
+            let datesRowHtml;
+            if (isAdmin) {
+                datesRowHtml = `<div class="job-panel-dates"><span class="badge-admin">상시 진행</span></div>`;
+            } else if (isDeleted) {
+                datesRowHtml = `<div class="job-panel-dates"><span class="badge-deleted">삭제됨 · ${daysRemaining(job.deletedAt)}일 후 완전 삭제</span></div>`;
+            } else {
+                datesRowHtml = `
+                    <div class="job-panel-dates">
+                        <strong>시작</strong> ${job.startDate || '-'}
+                        <span class="sep">·</span>
+                        <strong>완료</strong> ${job.endDate || '-'}
+                    </div>`;
+            }
+
+            let actionsHtml;
+            if (isDeleted) {
+                actionsHtml = `
+                    <button class="btn-ghost btn-ghost--sm" onclick="restoreJob(${job.id})">복구</button>
+                    <button class="btn-danger-ghost" onclick="permanentlyDeleteJob(${job.id})">영구 삭제</button>`;
+            } else if (isAdmin) {
+                actionsHtml = `<button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>`;
+            } else {
+                actionsHtml = `
+                    <button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>
+                    <button class="status-toggle-btn status-toggle-btn--sm ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>`;
+            }
+
             c.innerHTML += `
-                <div class="job-panel ${isDone ? 'is-done' : ''}">
+                <div class="job-panel ${isDone ? 'is-done' : ''} ${isDeleted ? 'is-deleted' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
                             <button class="btn-text icon-btn-circle" onclick="toggleHistoryExpand(${job.id})">
@@ -93,16 +175,11 @@
                                 <div class="truncate-line">
                                     ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
                                 </div>
-                                <div class="job-panel-dates">
-                                    <strong>시작</strong> ${job.startDate || '-'}
-                                    <span class="sep">·</span>
-                                    <strong>완료</strong> ${job.endDate || '-'}
-                                </div>
+                                ${datesRowHtml}
                             </div>
                         </div>
                         <div class="job-panel-actions">
-                            <button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>
-                            <button class="status-toggle-btn status-toggle-btn--sm ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>
+                            ${actionsHtml}
                         </div>
                     </div>
                     <div class="job-panel-body ${expanded ? '' : 'is-collapsed'}">${logsHtml}</div>
@@ -115,16 +192,18 @@
 
     function saveNewJob() {
         const presets = getPresets();
+        const isAdmin = document.getElementById('newIsAdmin').checked;
         presets.push({ 
-            id: Date.now(), status: 'active', color: getRandomColor(), isCustomColor: false,
+            id: Date.now(), status: isAdmin ? 'admin' : 'active', color: getRandomColor(), isCustomColor: false,
             opsCode: document.getElementById('newOpsCode').value.trim(), 
             opsName: document.getElementById('newOpsName').value.trim(), 
             taskCode: document.getElementById('newTaskCode').value.trim(), 
             taskName: document.getElementById('newTaskName').value.trim(), 
-            startDate: document.getElementById('hiddenDateInput').value || getTodayIso(), endDate: '' 
+            startDate: isAdmin ? '' : (document.getElementById('hiddenDateInput').value || getTodayIso()), endDate: '' 
         });
         localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets)); closeModal('addJobModal'); 
         ['newOpsCode', 'newOpsName', 'newTaskCode', 'newTaskName'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('newIsAdmin').checked = false;
         renderAll();
     }
     
@@ -152,6 +231,11 @@
         }).join('');
     }
 
+    function toggleEditJobDateFields() {
+        const isAdmin = document.getElementById('editJobStatus').value === 'admin';
+        document.getElementById('editJobDateFields').classList.toggle('hidden', isAdmin);
+    }
+
     function openEditJob(id) {
         const job = getPresets().find(p => p.id === id); if(!job) return;
         document.getElementById('editJobId').value = job.id; 
@@ -161,6 +245,8 @@
         document.getElementById('editTaskName').value = job.taskName || ''; 
         document.getElementById('editJobStartDate').value = job.startDate || '';
         document.getElementById('editJobEndDate').value = job.endDate || '';
+        document.getElementById('editJobStatus').value = (job.status === 'admin') ? 'admin' : (job.status === 'completed' ? 'completed' : 'active');
+        toggleEditJobDateFields();
         
         tempSelectedColor = job.color || appSettings.palette[0];
         isTempCustomColor = !!job.isCustomColor;
@@ -177,7 +263,14 @@
         if (idx > -1) {
             presets[idx].opsCode = document.getElementById('editOpsCode').value.trim(); presets[idx].opsName = document.getElementById('editOpsName').value.trim();
             presets[idx].taskCode = document.getElementById('editTaskCode').value.trim(); presets[idx].taskName = document.getElementById('editTaskName').value.trim();
-            presets[idx].startDate = document.getElementById('editJobStartDate').value; presets[idx].endDate = document.getElementById('editJobEndDate').value;
+            const newStatus = document.getElementById('editJobStatus').value;
+            presets[idx].status = newStatus;
+            if (newStatus === 'admin') {
+                presets[idx].startDate = ''; presets[idx].endDate = '';
+            } else {
+                presets[idx].startDate = document.getElementById('editJobStartDate').value; presets[idx].endDate = document.getElementById('editJobEndDate').value;
+                if (newStatus === 'completed' && !presets[idx].endDate) presets[idx].endDate = getTodayIso();
+            }
             presets[idx].color = tempSelectedColor;
             presets[idx].isCustomColor = isTempCustomColor;
 

@@ -18,10 +18,19 @@
         updateVisualDate(d); renderAll();
     }
 
+    function updateTrackerSearch(val) {
+        filters.tracker.search = val;
+        ['trackerListSearchInput', 'trackerLogSearchInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.value !== val) el.value = val;
+        });
+        renderTodoList(); renderHistory();
+    }
+
     function renderTodoList() {
         const listEl = document.getElementById('jobPresetList'); listEl.innerHTML = '';
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        const visiblePresets = getVisiblePresetsForDate(selectedDate);
+        const visiblePresets = getVisiblePresetsForDate(selectedDate).filter(p => matchesSearch(p, filters.tracker.search));
         document.getElementById('emptyJobMsg').style.display = visiblePresets.length === 0 ? 'block' : 'none';
 
         visiblePresets.forEach(job => {

@@ -1,4 +1,26 @@
-    function initData() { if (!localStorage.getItem(STORAGE_KEY_PRESETS)) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(defaultPresets)); }
+    function initData() { 
+        if (!localStorage.getItem(STORAGE_KEY_PRESETS)) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(defaultPresets)); 
+        purgeExpiredDeletedPresets();
+    }
+
+    function purgeExpiredDeletedPresets() {
+        const presets = getPresets();
+        const now = Date.now();
+        const limitMs = DELETED_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+        const remaining = presets.filter(p => {
+            if (p.status !== 'deleted' || !p.deletedAt) return true;
+            return (now - new Date(p.deletedAt).getTime()) < limitMs;
+        });
+        if (remaining.length !== presets.length) {
+            const removedIds = presets.filter(p => !remaining.includes(p)).map(p => p.id);
+            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(remaining));
+            if (removedIds.length) {
+                const h = getHistory().filter(x => !removedIds.includes(x.jobId));
+                localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(h));
+            }
+        }
+    }
+
     function getPresets() { return JSON.parse(localStorage.getItem(STORAGE_KEY_PRESETS)) || []; }
     function getHistory() { return JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || []; }
 

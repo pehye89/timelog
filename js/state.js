@@ -13,6 +13,15 @@
     let mgmtStatusTab = 'active'; 
     let mgmtCurrentPage = 1;
     const MGMT_ITEMS_PER_PAGE = 10;
+
+    // Search & Period Filter State (per tab)
+    let filters = {
+        tracker: { search: '', dateFrom: '', dateTo: '' },
+        management: { search: '', dateFrom: '', dateTo: '' },
+        weekly: { search: '', dateFrom: '', dateTo: '' }
+    };
+
+    const DELETED_RETENTION_DAYS = 30;
     
     // Dynamic Main Theme Gradation Helper
     function getThemeGradation(mainHex) {
