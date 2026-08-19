@@ -13,6 +13,13 @@
     let mgmtStatusTab = 'active'; 
     let mgmtCurrentPage = 1;
     const MGMT_ITEMS_PER_PAGE = 10;
+
+    // Search & Period Filter State (management tab only)
+    let filters = {
+        management: { search: '', dateFrom: '', dateTo: '' }
+    };
+
+    const DELETED_RETENTION_DAYS = 30;
     
     // Dynamic Main Theme Gradation Helper
     function getThemeGradation(mainHex) {
@@ -24,7 +31,7 @@
         let g = (num >> 8) & 255;
         let b = num & 255;
         
-        const factors = [1.0, 0.8, 0.65, 0.5, 0.35, 0.2];
+        const factors = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
         return factors.map(f => {
             let nr = Math.round(r * f + 255 * (1 - f));
             let ng = Math.round(g * f + 255 * (1 - f));

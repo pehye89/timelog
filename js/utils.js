@@ -22,12 +22,49 @@
         const sel = selectedDate || document.getElementById('hiddenDateInput').value || getTodayIso();
         return getPresets().filter(p => {
             if (p.status === 'active') return true;
+            if (p.status === 'admin') return true;
             if (p.status === 'completed') {
                 if (!p.endDate) return true;
                 return p.endDate >= sel;
             }
             return false;
         });
+    }
+
+    // Returns true if the job's opsCode/opsName/taskCode/taskName contains the search term (case-insensitive).
+    function matchesSearch(job, search) {
+        if (!search) return true;
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        const haystack = [job.opsCode, job.opsName, job.taskCode, job.taskName].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(q);
+    }
+
+    // Returns true if dateStr (YYYY-MM-DD) falls within [from, to] (inclusive). Empty bounds are unbounded.
+    function inDateRange(dateStr, from, to) {
+        if (from && dateStr < from) return false;
+        if (to && dateStr > to) return false;
+        return true;
+    }
+
+    // Shared sort order used across all tabs: 관리업무 > 완료 > 진행중, then by 운영번호(opsCode).
+    const STATUS_SORT_ORDER = { admin: 0, completed: 1, active: 2 };
+    function sortJobsByStatusAndCode(jobs) {
+        return [...jobs].sort((a, b) => {
+            const oa = STATUS_SORT_ORDER[a.status] ?? 3; const ob = STATUS_SORT_ORDER[b.status] ?? 3;
+            if (oa !== ob) return oa - ob;
+            return (a.opsCode || '').localeCompare(b.opsCode || '');
+        });
+    }
+
+    const STATUS_PILL_INFO = {
+        active: { label: '진행중', cls: 'active' },
+        completed: { label: '완료', cls: 'completed' },
+        admin: { label: '관리업무', cls: 'admin' }
+    };
+    function statusPillHtml(status) {
+        const info = STATUS_PILL_INFO[status] || STATUS_PILL_INFO.active;
+        return `<span class="status-pill status-pill--${info.cls}">${info.label}</span>`;
     }
 
     function buildBulletHTML(arr) { 

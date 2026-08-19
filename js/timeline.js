@@ -73,21 +73,47 @@
             const myLogs = history.filter(h => h.jobId === job.id);
             let cellsHtml = '';
 
+            const filledFlags = [];
+            const lunchFlags = [];
+            for (let i = 0; i < totalIntervals; i++) {
+                const cellMins = wStart + (i * interval);
+                const filled = myLogs.some(l => timeToMins(l.startTime) <= cellMins && timeToMins(l.endTime) > cellMins);
+                filledFlags.push(filled);
+                const isLunchCell = cellMins >= lStartMins && cellMins < lEndMins;
+                lunchFlags.push(isLunchCell && !filled);
+            }
+
             for(let i=0; i<totalIntervals; i++) {
                 const cellMins = wStart + (i * interval);
-                const isMyFilled = myLogs.some(l => timeToMins(l.startTime) <= cellMins && timeToMins(l.endTime) > cellMins);
+                const isMyFilled = filledFlags[i];
                 const isAnyFilled = history.some(l => timeToMins(l.startTime) <= cellMins && timeToMins(l.endTime) > cellMins);
-                const isLunch = cellMins >= lStartMins && cellMins < lEndMins; 
+                const isLunchCell = lunchFlags[i];
                 
                 let cellClass = '';
-                if (isMyFilled) cellClass = 'filled';
-                else if (isLunch) cellClass = 'lunch-time';
+                if (isMyFilled) {
+                    cellClass = 'filled';
+                    const prevFilled = i > 0 && filledFlags[i - 1];
+                    const nextFilled = i < totalIntervals - 1 && filledFlags[i + 1];
+                    if (!prevFilled && !nextFilled) cellClass += ' run-single';
+                    else if (!prevFilled && nextFilled) cellClass += ' run-start run-attach-right';
+                    else if (prevFilled && nextFilled) cellClass += ' run-mid run-attach-right';
+                    else cellClass += ' run-end';
+                }
+                else if (isLunchCell) {
+                    cellClass = 'lunch-time';
+                    const prevLunch = i > 0 && lunchFlags[i - 1];
+                    const nextLunch = i < totalIntervals - 1 && lunchFlags[i + 1];
+                    if (!prevLunch && !nextLunch) cellClass += ' run-single';
+                    else if (!prevLunch && nextLunch) cellClass += ' run-start run-attach-right';
+                    else if (prevLunch && nextLunch) cellClass += ' run-mid run-attach-right';
+                    else cellClass += ' run-end';
+                }
                 else if (isAnyFilled) cellClass = 'disabled-cell';
 
-                cellsHtml += `<div class="time-cell ${cellClass}" data-job="${job.id}" data-time="${cellMins}" onclick="handleCellClick(event, ${job.id}, ${cellMins}, ${isMyFilled})" onmousedown="startPaint(event, ${job.id}, ${cellMins}, ${isAnyFilled || isLunch})" onmouseenter="hoverPaint(${job.id}, ${cellMins})"></div>`;
+                cellsHtml += `<div class="time-cell ${cellClass}" data-job="${job.id}" data-time="${cellMins}" onclick="handleCellClick(event, ${job.id}, ${cellMins}, ${isMyFilled})" onmousedown="startPaint(event, ${job.id}, ${cellMins}, ${isAnyFilled || isLunchCell})" onmouseenter="hoverPaint(${job.id}, ${cellMins})"></div>`;
             }
             
-            const truncName = truncate(job.opsName, 10);
+            const truncName = truncate(job.opsName, 16);
             rowsContainer.innerHTML += `
                 <div class="timeline-row" style="--job-color: ${job.color || '#334155'};" 
                      ondragover="handleDragOver(event, this)" 
@@ -107,8 +133,8 @@
         if (!isFilled) return;
         const dateStr = document.getElementById('hiddenDateInput').value;
         const targetLog = getHistory().find(h => h.jobId === jobId && h.date === dateStr && timeToMins(h.startTime) <= cellMins && timeToMins(h.endTime) > cellMins);
-        if (targetLog && confirm('선택한 시간에 활성화된 블럭을 삭제하시겠습니까?')) {
-            deleteHistory(targetLog.id);
+        if (targetLog) {
+            openEditLogTime(targetLog.id);
         }
     }
 

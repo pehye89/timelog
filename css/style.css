@@ -78,7 +78,7 @@
             --icon-btn-size-sm: 28px;
             --color-dot-size: 12px;
             --color-swatch-size: 24px;
-            --timeline-label-width: 115px;
+            --timeline-label-width: 150px;
             --timeline-row-height: 32px;
             --timeline-row-gap: 6px;
             --timeline-min-width: 800px;
@@ -88,6 +88,11 @@
 
             --z-header: 50;
             --z-modal: 100;
+
+            /* Fixed neutral gray - independent of the user's accent color, used for filter bars etc. */
+            --neutral-gray: #f1f5f9;
+            --neutral-gray-border: #e2e8f0;
+            --lunch-block-gray: #E6ECF2;
         }
 
         body.dark-mode {
@@ -108,6 +113,10 @@
             --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
             --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.6);
             --shadow-float: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
+
+            --neutral-gray: #1e293b;
+            --neutral-gray-border: #334155;
+            --lunch-block-gray: #475569;
         }
 
         * {
@@ -233,6 +242,7 @@
         /* Size variants - apply alongside .btn-ghost, e.g. class="btn-ghost btn-ghost--sm" */
         .btn-ghost--sm { padding: var(--space-3) var(--space-7); font-size: var(--fs-xs); }
         .btn-ghost--xs { padding: var(--space-2) var(--space-6); font-size: var(--fs-xs); }
+        .btn-ghost--xs.is-today { background: var(--accent-main); color: #ffffff; }
 
         .btn-text { background: transparent; border: none; color: var(--text-muted); padding: 6px 10px; font-size: var(--fs-sm); font-weight: var(--fw-bold); white-space: nowrap; flex-shrink: 0; }
         .btn-text:hover { color: var(--text-strong); background: var(--bg-subtle); }
@@ -433,16 +443,36 @@
         .timeline-label { width: var(--timeline-label-width); flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; padding-right: var(--space-5); overflow: hidden; }
         .timeline-label-code { font-size: var(--fs-2xs); font-weight: var(--fw-black); color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .timeline-label-name { font-size: var(--fs-2xs); color: var(--text-muted); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .timeline-grid { flex: 1; display: flex; height: 100%; background: var(--bg-subtle); gap: 2px; border-radius: 4px; overflow: hidden; padding: 2px; }
+        .timeline-grid { flex: 1; display: flex; height: 100%; background: var(--bg-subtle); gap: 0; border-radius: 4px; overflow: hidden; padding: 2px; }
         
-        .time-cell { flex: 1; background: transparent; cursor: crosshair; transition: background 0.1s, border-radius 0.1s; border-radius: 2px; }
+        .time-cell { flex: 1; background: transparent; cursor: crosshair; transition: background 0.1s, border-radius 0.1s; border-radius: 2px; margin-right: 2px; position: relative; }
+        .time-cell:last-child { margin-right: 0; }
         .time-cell:hover { background: var(--border-strong); }
         .time-cell.filled { background: var(--job-color); opacity: 1; cursor: pointer; }
-        
-        /* Timeline Disabled / Lunch Follow Theme Accent Color */
+
+        /* Timeline Disabled / Lunch: fixed neutral gray, independent of theme accent color */
         .time-cell.disabled-cell { background: color-mix(in srgb, var(--bg_base) 120%, var(--bg-base)); opacity: 0.6; cursor: not-allowed; }
-        .time-cell.lunch-time { background: color-mix(in srgb, var(--accent-main) 35%, var(--bg-subtle)); opacity: 0.75; cursor: not-allowed; }
+        .time-cell.lunch-time { background: var(--lunch-block-gray); opacity: 1; cursor: not-allowed; }
         .time-cell.painting { background: var(--text-muted) !important; opacity: 0.5; }
+
+        /* Adjacent cells of the same run (a job's filled block, or the lunch block) visually merge into a
+           single continuous block, rounded only at its two ends. IMPORTANT: this bridges the 2px gap with
+           a color-inherited overlay instead of removing the cell's margin — every cell keeps the same
+           margin/flex-basis across all rows, so columns stay aligned between rows regardless of how many
+           runs a row has. background-color:inherit picks up whichever color (job color or lunch gray) the
+           cell itself is using, so the same rule works for both. */
+        .time-cell.run-attach-right::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 100%;
+            width: 2px;
+            background-color: inherit;
+        }
+        .time-cell.run-single { border-radius: 6px; }
+        .time-cell.run-start { border-radius: 6px 0 0 6px; }
+        .time-cell.run-mid { border-radius: 0; }
+        .time-cell.run-end { border-radius: 0 6px 6px 0; }
 
         /* Timeline Tree Structure (Timer Log) */
         .log-tree {
@@ -466,8 +496,7 @@
             content: '';
             position: absolute;
             left: -18px;
-            top: 50%;
-            transform: translateY(-50%);
+            top: 9px;
             width: 6px;
             height: 6px;
             border-radius: 50%;
@@ -542,6 +571,15 @@
         /* Folder Tabs for Management */
         .folder-tabs { display: flex; gap: var(--space-3); padding-left: 0; margin-bottom: 0; }
         .folder-tab { background: var(--border-subtle); border: none; color: var(--text-muted); padding: 10px var(--space-10); font-size: var(--fs-sm); font-weight: var(--fw-bold); cursor: pointer; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transition: var(--transition); }
+        .folder-tab--trash {
+            margin-left: auto;
+            margin-right: var(--radius-lg);
+            background: transparent;
+            color: var(--text-muted);
+            opacity: 0.65;
+        }
+        .folder-tab--trash:hover { opacity: 1; background: var(--neutral-gray); color: var(--text-strong); }
+        .folder-tab--trash.active { opacity: 1; background: var(--neutral-gray); color: var(--text-strong); }
         .folder-tab:hover { background: var(--border-strong); color: var(--text-strong); }
         body.dark-mode .folder-tab:hover { background: #475569; }
         .folder-tab.active { background: var(--bg-surface); color: var(--text-strong); }
@@ -581,7 +619,7 @@
         .job-panel-main { display: flex; align-items: flex-start; gap: var(--space-6); min-width: 0; flex: 1; }
         .job-panel-main .color-dot { margin-top: var(--space-3); }
         .job-panel-info { min-width: 0; }
-        .job-panel-info--half { max-width: 50%; }
+        .job-panel-info--half { max-width: 65%; }
         .job-panel-title { font-weight: var(--fw-black); font-size: var(--fs-md); color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.02em; }
         .job-panel-dates { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--space-1); }
         .job-panel-dates strong { font-weight: var(--fw-black); }
@@ -603,7 +641,8 @@
 
         /* Log card (Timeline tab, per-operation grouped bullet log) */
         .log-card { background: var(--bg-hover); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-9) var(--space-9) var(--space-7) var(--space-9); }
-        .log-card-head { margin-bottom: var(--space-4); gap: var(--space-6); }
+        .log-card-head { margin-bottom: var(--space-4); gap: var(--space-6); align-items: flex-start; }
+        .log-card-total { padding-top: 2px; }
         .log-card-title { font-size: var(--fs-md); font-weight: var(--fw-black); color: var(--text-strong); }
         .log-card-total { font-size: var(--fs-base); font-weight: var(--fw-black); color: var(--text-strong); flex-shrink: 0; }
         .log-node-main { display: flex; align-items: flex-start; gap: var(--space-5); flex: 1; min-width: 0; }
@@ -617,10 +656,25 @@
         .summary-total-label { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text-muted); }
         .summary-total-value { font-size: var(--fs-md); font-weight: var(--fw-black); color: var(--text-strong); }
         .summary-row { padding: var(--space-5) 0; align-items: flex-start; }
-        .summary-row-info { min-width: 0; max-width: 50%; margin-right: var(--space-6); }
-        .summary-row-title { font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--text-strong); }
+        .summary-row-info { min-width: 0; max-width: 65%; margin-right: var(--space-6); }
+        .summary-row-title-wrap { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+        .summary-row-title { font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--text-strong); flex-shrink: 1; min-width: 0; }
         .summary-row-meta { margin-top: var(--space-1); }
         .summary-row-value { font-size: var(--fs-sm); font-weight: var(--fw-black); color: var(--text-strong); flex-shrink: 0; }
+
+        /* Inline status pill next to an operation name (e.g. 금주요약) */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: var(--fs-2xs);
+            font-weight: var(--fw-bold);
+            padding: 2px var(--space-5);
+            border-radius: var(--radius-full);
+            flex-shrink: 0;
+        }
+        .status-pill--active { background: var(--accent-main); color: #ffffff; }
+        .status-pill--completed { background: var(--neutral-gray); color: var(--text-muted); border: 1px solid var(--neutral-gray-border); }
+        .status-pill--admin { background: var(--accent-light); color: var(--text-strong); }
 
         /* Footer Fixed at Bottom if Short Content */
         .footer {
@@ -631,3 +685,90 @@
             font-size: var(--fs-xs);
             font-weight: var(--fw-semibold);
         }
+
+        /* Search input with an inline calendar-icon toggle that opens a period filter popover.
+           Used only in the 운영 관리 tab. The visual is fixed to always look "active/expanded" —
+           there is no separate default/focus size change. */
+        .search-filter-wrap { position: relative; display: inline-flex; align-items: center; }
+        .mgmt-search-input {
+            width: 560px;
+            padding: var(--space-4) 40px var(--space-4) var(--space-7);
+            font-size: var(--fs-sm);
+            background: var(--neutral-gray);
+            border: 1px solid var(--neutral-gray-border);
+            border-radius: var(--radius-full);
+        }
+        .mgmt-search-input:focus { background: var(--neutral-gray); border-color: var(--neutral-gray-border); box-shadow: none; }
+
+        .date-filter-toggle {
+            position: absolute;
+            right: var(--space-3);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 26px; height: 26px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .date-filter-toggle:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
+        .date-filter-toggle.has-filter { color: var(--accent-main); }
+        .date-filter-toggle.has-filter::after {
+            content: '';
+            position: absolute;
+            top: 2px; right: 2px;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent-main);
+            border: 1.5px solid var(--bg-surface);
+        }
+
+        .date-filter-popover {
+            display: none;
+            position: absolute;
+            top: calc(100% + var(--space-5));
+            left: 0;
+            z-index: var(--z-modal);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: var(--space-7);
+            min-width: 280px;
+        }
+        .date-filter-popover.open { display: block; }
+
+        .filter-dates { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+        .filter-dates input[type="date"] { width: 130px; padding: var(--space-4) var(--space-5); font-size: var(--fs-sm); }
+        .filter-dates-sep { color: var(--text-muted); font-size: var(--fs-xs); }
+        .filter-clear-btn { flex-shrink: 0; margin-top: var(--space-6); padding-left: 0; }
+
+        /* Status badge (삭제됨) */
+        .badge-deleted {
+            display: inline-flex;
+            align-items: center;
+            font-size: var(--fs-2xs);
+            font-weight: var(--fw-bold);
+            padding: var(--space-1) var(--space-5);
+            border-radius: var(--radius-full);
+            background: var(--neutral-gray);
+            color: var(--text-muted);
+        }
+        .job-panel.is-deleted { opacity: 0.7; }
+
+        /* Clickable time range on a timelog entry */
+        .log-node-time {
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 1px var(--space-2);
+            transition: var(--transition);
+        }
+        .log-node-time:hover { background: var(--bg-subtle); color: var(--text-strong); text-decoration: underline; }
+        .log-node-date { font-size: var(--fs-2xs); font-weight: var(--fw-bold); color: var(--text-muted); flex-shrink: 0; padding-top: 1px; }
+
+        /* Small modal variant + live duration readout */
+        .modal-box--sm { max-width: 380px; }
+        .duration-live { font-size: var(--fs-lg); font-weight: var(--fw-black); color: var(--text-strong); text-align: center; padding: var(--space-6) 0; }
+        .text-error { color: var(--red); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }

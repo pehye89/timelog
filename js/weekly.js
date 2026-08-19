@@ -25,9 +25,12 @@
         const emptyMsg = document.getElementById('weeklySummaryEmptyMsg');
         if (!container) return;
 
+        const presetStatusMap = {};
+        getPresets().forEach(p => { presetStatusMap[p.id] = p.status; });
+
         const totalsByJob = {};
         weekHistory.forEach(h => {
-            if (!totalsByJob[h.jobId]) totalsByJob[h.jobId] = { ms: 0, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName };
+            if (!totalsByJob[h.jobId]) totalsByJob[h.jobId] = { ms: 0, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: presetStatusMap[h.jobId] || 'active' };
             totalsByJob[h.jobId].ms += h.durationMs || 0;
         });
 
@@ -40,8 +43,8 @@
         }
         if (emptyMsg) emptyMsg.style.display = 'none';
 
-        const sortedIds = jobIds.sort((a, b) => totalsByJob[b].ms - totalsByJob[a].ms);
-        const grandTotalMs = jobIds.reduce((sum, id) => sum + totalsByJob[id].ms, 0);
+        const sortedIds = sortJobsByStatusAndCode(jobIds.map(id => ({ id, ...totalsByJob[id] }))).map(item => item.id);
+        const grandTotalMs = sortedIds.reduce((sum, id) => sum + totalsByJob[id].ms, 0);
 
         let html = `
             <div class="flex-between summary-total-row">
@@ -55,7 +58,10 @@
             return `
                 <div class="flex-between summary-row">
                     <div class="summary-row-info">
-                        <div class="summary-row-title truncate-line">${escapeHtml(item.opsName)}</div>
+                        <div class="summary-row-title-wrap">
+                            ${statusPillHtml(item.status)}
+                            <div class="summary-row-title truncate-line">${escapeHtml(item.opsName)}</div>
+                        </div>
                         <div class="summary-row-meta truncate-line">${renderOpTaskMeta(item.opsCode, item.taskName, item.taskCode)}</div>
                     </div>
                     <span class="summary-row-value">${formatDuration(item.ms)}</span>
@@ -73,8 +79,11 @@
         const mon = new Date(d); mon.setDate(d.getDate() - day + 1); const sun = new Date(d); sun.setDate(d.getDate() - day + 7);
         
         document.getElementById('weeklyDateRangeText').innerText = getWeekOfMonthStr(d);
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        document.getElementById('todayBtnWeekly').classList.toggle('is-today', today >= mon && today <= sun);
         
-        const presets = getPresets();
+        const presets = getPresets().filter(p => p.status !== 'deleted');
         const history = getHistory();
         const weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
 
@@ -82,13 +91,10 @@
 
         const c = document.getElementById('weeklyContainer'); c.innerHTML = '';
 
-        const sortedPresets = [...presets].sort((a, b) => {
-            if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
-            return (a.opsCode || '').localeCompare(b.opsCode || '');
-        });
+        const sortedPresets = sortJobsByStatusAndCode(presets);
 
         if(sortedPresets.length === 0) {
-            return c.innerHTML = '<div class="empty-state">등록된 운영이 없습니다.</div>';
+            return c.innerHTML = '<div class="empty-state">해당하는 운영이 없습니다.</div>';
         }
 
         let renderedCount = 0;
@@ -99,7 +105,7 @@
             if (totalMs === 0) return;
             renderedCount++;
 
-            const isExpanded = jobCollapseState[`weekly_${job.id}`] !== false;
+            const isExpanded = jobCollapseState[`weekly_${job.id}`] === true;
 
             const datesGroup = {};
             jobLogs.forEach(l => {
@@ -121,10 +127,18 @@
                 });
                 datesTreeHtml += '</table>';
             } else {
-                datesTreeHtml = '<div class="log-detail-empty">기록된 업무가 없습니다.</div>';
+                datesTreeHtml = '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
             }
 
             const isDone = job.status === 'completed';
+            const isAdmin = job.status === 'admin';
+
+            const datesRowHtml = `
+                <div class="job-panel-dates">
+                    <strong>시작</strong> ${job.startDate || '-'}
+                    <span class="sep">·</span>
+                    <strong>완료</strong> ${job.endDate || '-'}
+                </div>`;
 
             c.innerHTML += `
                 <div class="job-panel">
@@ -139,18 +153,14 @@
                                 <div class="truncate-line">
                                     ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
                                 </div>
-                                <div class="job-panel-dates">
-                                    <strong>시작</strong> ${job.startDate || '-'}
-                                    <span class="sep">·</span>
-                                    <strong>완료</strong> ${job.endDate || '-'}
-                                </div>
+                                ${datesRowHtml}
                             </div>
                         </div>
                         <div class="job-panel-actions">
                             <span class="job-panel-total">
                                 총 ${formatDuration(totalMs)}
                             </span>
-                            <button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>
+                            ${isAdmin ? '' : `<button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>`}
                         </div>
                     </div>
 
@@ -161,6 +171,6 @@
         });
 
         if (renderedCount === 0) {
-            c.innerHTML = '<div class="empty-state">이번 주 기록된 운영이 없습니다.</div>';
+            c.innerHTML = '<div class="empty-state">해당 조건에 기록된 운영이 없습니다.</div>';
         }
     }

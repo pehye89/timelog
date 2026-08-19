@@ -42,7 +42,7 @@
                 treeHtml += `
                     <div class="log-tree-node">
                         <div class="log-node-main">
-                            <span class="log-node-time">${row.startTime}-${row.endTime}</span>
+                            <span class="log-node-time" onclick="openEditLogTime(${row.id})" title="클릭하여 시간 수정">${row.startTime}-${row.endTime}</span>
                             <span class="log-node-duration">${durationStr}</span>
                             <div class="editable-content log-node-content" onclick="makeEditable(${row.id}, this)">${bulletsHtml}</div>
                         </div>
@@ -93,4 +93,65 @@
         });
 
         editor.focus();
+    }
+
+    // ---- Inline time-range editing for a timelog entry ----
+    function openEditLogTime(id) {
+        const item = getHistory().find(h => h.id === id); if (!item) return;
+        document.getElementById('editLogTimeId').value = id;
+        document.getElementById('editLogTimeDateLabel').innerText = item.date;
+        document.getElementById('editLogTimeStart').value = item.startTime;
+        document.getElementById('editLogTimeEnd').value = item.endTime;
+        updateEditLogTimeDuration();
+        openModal('editLogTimeModal');
+    }
+
+    function updateEditLogTimeDuration() {
+        const s = document.getElementById('editLogTimeStart').value;
+        const e = document.getElementById('editLogTimeEnd').value;
+        const el = document.getElementById('editLogTimeDurationText');
+        if (!s || !e) { el.innerText = '-'; el.classList.remove('text-error'); return; }
+        const diff = timeToMins(e) - timeToMins(s);
+        if (diff <= 0) {
+            el.innerText = '종료 시간은 시작 시간보다 늦어야 합니다';
+            el.classList.add('text-error');
+            return;
+        }
+        el.classList.remove('text-error');
+        el.innerText = `총 ${diff}분`;
+    }
+
+    function deleteFromEditLogTimeModal() {
+        const id = parseInt(document.getElementById('editLogTimeId').value, 10);
+        if (!id) return;
+        if (!confirm('해당 기록을 삭제할까요?')) return;
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(getHistory().filter(i => i.id !== id)));
+        closeModal('editLogTimeModal');
+        renderAll();
+    }
+
+    function saveEditLogTime() {
+        const id = parseInt(document.getElementById('editLogTimeId').value, 10);
+        const s = document.getElementById('editLogTimeStart').value;
+        const e = document.getElementById('editLogTimeEnd').value;
+        if (!s || !e) return alert('시간을 입력해주세요.');
+        if (timeToMins(e) <= timeToMins(s)) return alert('종료 시간은 시작 시간보다 늦어야 합니다.');
+
+        const history = getHistory(); const idx = history.findIndex(h => h.id === id);
+        if (idx === -1) return;
+        const item = history[idx];
+
+        const hasConflict = history.some(h => h.id !== id && h.date === item.date &&
+            !(timeToMins(e) <= timeToMins(h.startTime) || timeToMins(s) >= timeToMins(h.endTime)));
+        if (hasConflict && !confirm('선택한 시간대가 다른 기록과 겹칩니다. 계속 저장하시겠습니까?')) return;
+
+        const sObj = new Date(`${item.date}T${s}:00`);
+        const eObj = new Date(`${item.date}T${e}:00`);
+        item.startTime = s; item.endTime = e;
+        item.startTimeObj = sObj.toISOString(); item.endTimeObj = eObj.toISOString();
+        item.durationMs = eObj - sObj;
+
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        closeModal('editLogTimeModal');
+        renderAll();
     }

@@ -2,6 +2,7 @@
         const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0');
         document.getElementById('visualDateText').innerText = `${yyyy}.${mm}.${dd} ${DAYS_EN[d.getDay()]}`;
         document.getElementById('hiddenDateInput').value = `${yyyy}-${mm}-${dd}`;
+        document.getElementById('todayBtnTracker').classList.toggle('is-today', `${yyyy}-${mm}-${dd}` === getTodayIso());
     }
     function changeDate(offset) {
         const inputVal = document.getElementById('hiddenDateInput').value; if(!inputVal) return;
@@ -21,7 +22,7 @@
     function renderTodoList() {
         const listEl = document.getElementById('jobPresetList'); listEl.innerHTML = '';
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        const visiblePresets = getVisiblePresetsForDate(selectedDate);
+        const visiblePresets = sortJobsByStatusAndCode(getVisiblePresetsForDate(selectedDate));
         document.getElementById('emptyJobMsg').style.display = visiblePresets.length === 0 ? 'block' : 'none';
 
         visiblePresets.forEach(job => {
