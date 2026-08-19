@@ -2,28 +2,8 @@
     function escapeHtml(str) { return str ? String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ''; }
     function truncate(str, max) { if(!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
     
-    function formatDurationByUnit(ms, tabType) {
+    function formatDuration(ms) {
         const totalMins = Math.round(ms / 60000);
-        let unit = appSettings[`unit${tabType.charAt(0).toUpperCase() + tabType.slice(1)}`] || 'min';
-
-        if (unit === 'hm') {
-            const h = Math.floor(totalMins / 60);
-            const m = totalMins % 60;
-            return h > 0 ? `${h}시간 ${m}분` : `${m}분`;
-        } else if (unit === 'day') {
-            const d = (totalMins / 480).toFixed(1);
-            return `${d}일`;
-        } else if (unit === 'dhm') {
-            const d = Math.floor(totalMins / 480);
-            const rem = totalMins % 480;
-            const h = Math.floor(rem / 60);
-            const m = rem % 60;
-            let res = [];
-            if (d > 0) res.push(`${d}일`);
-            if (h > 0) res.push(`${h}시간`);
-            res.push(`${m}분`);
-            return res.join(' ');
-        }
         return `${totalMins}분`;
     }
 

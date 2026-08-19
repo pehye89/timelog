@@ -72,7 +72,7 @@
                     logsHtml = '<table class="log-detail-table">';
                     sortedDates.forEach(dateStr => {
                         const dg = datesGroup[dateStr];
-                        logsHtml += `<tr><td class="col-date">${dateStr}</td><td class="col-duration">${formatDurationByUnit(dg.ms, 'mgmt')}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
+                        logsHtml += `<tr><td class="col-date">${dateStr}</td><td class="col-duration">${formatDuration(dg.ms)}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
                     });
                     logsHtml += '</table>';
                 }

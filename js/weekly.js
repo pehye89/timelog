@@ -46,7 +46,7 @@
         let html = `
             <div class="flex-between summary-total-row">
                 <span class="summary-total-label">총 합계</span>
-                <span class="summary-total-value">${formatDurationByUnit(grandTotalMs, 'weekly')}</span>
+                <span class="summary-total-value">${formatDuration(grandTotalMs)}</span>
             </div>
         `;
 
@@ -58,7 +58,7 @@
                         <div class="summary-row-title truncate-line">${escapeHtml(item.opsName)}</div>
                         <div class="summary-row-meta truncate-line">${renderOpTaskMeta(item.opsCode, item.taskName, item.taskCode)}</div>
                     </div>
-                    <span class="summary-row-value">${formatDurationByUnit(item.ms, 'weekly')}</span>
+                    <span class="summary-row-value">${formatDuration(item.ms)}</span>
                 </div>
             `;
         }).join('');
@@ -117,7 +117,7 @@
                     const dateObj = new Date(dateStr); const dayStr = DAYS_EN[dateObj.getDay()];
                     const dayNum = String(dateObj.getDate()).padStart(2, '0');
                     const dg = datesGroup[dateStr];
-                    datesTreeHtml += `<tr><td class="col-date">${dayNum} ${dayStr}</td><td class="col-duration">${formatDurationByUnit(dg.ms, 'weekly')}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
+                    datesTreeHtml += `<tr><td class="col-date">${dayNum} ${dayStr}</td><td class="col-duration">${formatDuration(dg.ms)}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
                 });
                 datesTreeHtml += '</table>';
             } else {
@@ -148,7 +148,7 @@
                         </div>
                         <div class="job-panel-actions">
                             <span class="job-panel-total">
-                                총 ${formatDurationByUnit(totalMs, 'weekly')}
+                                총 ${formatDuration(totalMs)}
                             </span>
                             <button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>
                         </div>

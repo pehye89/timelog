@@ -48,9 +48,6 @@
         document.getElementById('roundSetting').value = appSettings.roundSetting || '10';
         document.getElementById('settingMainColor').value = appSettings.mainColor;
         document.getElementById('settingMainColorText').innerText = appSettings.mainColor;
-        document.getElementById('unitTimer').value = appSettings.unitTimer || 'min';
-        document.getElementById('unitMgmt').value = appSettings.unitMgmt || 'min';
-        document.getElementById('unitReport').value = appSettings.unitReport || 'min';
         document.getElementById('settingWorkStart').value = appSettings.workStart || '09:00';
         document.getElementById('settingWorkEnd').value = appSettings.workEnd || '20:00';
         document.getElementById('settingLunchStart').value = appSettings.lunchStart || '11:40';
@@ -84,9 +81,6 @@
             theme: document.getElementById('settingTheme').value, 
             mainColor: document.getElementById('settingMainColor').value,
             roundSetting: document.getElementById('roundSetting').value,
-            unitTimer: document.getElementById('unitTimer').value,
-            unitMgmt: document.getElementById('unitMgmt').value,
-            unitReport: document.getElementById('unitReport').value,
             workStart: document.getElementById('settingWorkStart').value || '09:00', workEnd: document.getElementById('settingWorkEnd').value || '20:00',
             lunchStart: document.getElementById('settingLunchStart').value || '11:40', lunchEnd: document.getElementById('settingLunchEnd').value || '12:40',
             paletteTheme: paletteTheme, palette: newPalette

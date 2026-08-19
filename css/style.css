@@ -270,9 +270,6 @@
         .flex-gap-lg { gap: var(--space-7); }
         .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-6); margin-top: var(--space-11); }
         .modal-actions--split { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-11); }
-        .field-row { display: flex; align-items: center; justify-content: space-between; }
-        .field-row + .field-row { margin-top: var(--space-4); }
-        .select-compact { width: 160px; padding: var(--space-3) var(--space-6); }
 
         /* Spacing utilities (margin-top / margin-bottom) */
         .mt-2xs { margin-top: var(--space-1); }
@@ -286,7 +283,6 @@
         .mb-md { margin-bottom: var(--space-8); }
         .mb-xl { margin-bottom: var(--space-10); }
         .label--tight { margin-bottom: var(--space-3); }
-        .unit-rows { display: flex; flex-direction: column; gap: var(--space-4); }
         .active-job-title { font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--text-strong); min-height: 20px; }
 
         /* Section box variants */

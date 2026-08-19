@@ -37,7 +37,7 @@
                 const bulletsHtml = (row.bullets && row.bullets.length > 0)
                     ? buildDotLines(row.bullets)
                     : '';
-                const durationStr = formatDurationByUnit(row.durationMs, 'timer');
+                const durationStr = formatDuration(row.durationMs);
 
                 treeHtml += `
                     <div class="log-tree-node">
@@ -61,7 +61,7 @@
                             </div>
                         </div>
                         <div class="log-card-total">
-                            ${formatDurationByUnit(totalMs, 'timer')}
+                            ${formatDuration(totalMs)}
                         </div>
                     </div>
                     ${treeHtml}
