@@ -9,6 +9,8 @@
         });
         renderAll(); checkActiveTimer();
         document.addEventListener('mouseup', endPaint);
+        runAppOpenAutoBackup();
+        startDriveScheduledBackupWatcher();
     });
 
     function switchTab(tab) { 

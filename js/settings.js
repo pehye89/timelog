@@ -52,6 +52,9 @@
         document.getElementById('settingWorkEnd').value = appSettings.workEnd || '20:00';
         document.getElementById('settingLunchStart').value = appSettings.lunchStart || '11:40';
         document.getElementById('settingLunchEnd').value = appSettings.lunchEnd || '12:40';
+        document.getElementById('driveClientId').value = getDriveClientId();
+        document.getElementById('driveBackupTime').value = getDriveBackupTime();
+        refreshDriveBackupStatus();
         renderPaletteOptions(); syncPaletteInputs();
     }
 

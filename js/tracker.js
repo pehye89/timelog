@@ -48,8 +48,7 @@
     
     function togglePlay(id) {
         if (currentJob && currentJob.id === id) return stopAndSaveTimer();
-        if (currentJob && !confirm('현재 기록을 종료하고 새 할 일을 시작할까요?')) return;
-        if (currentJob) stopAndSaveTimer(false); 
+        if (currentJob) stopAndSaveTimer(true);
         const job = getPresets().find(p => p.id === id); startTimer(job);
     }
     
@@ -67,7 +66,11 @@
         currentJob = job; startTime = new Date();
         localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify({ startTime: startTime.toISOString(), job, bullets: sessionBulletEditor.getBullets() }));
         updateTimerUI(true); renderTodoList();
-        timerInterval = setInterval(() => document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime)), 1000);
+        updateLiveTimelineCells();
+        timerInterval = setInterval(() => {
+            document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
+            updateLiveTimelineCells();
+        }, 1000);
     }
     
     function stopAndSaveTimer(resetBullets = true) {
@@ -106,7 +109,11 @@
             else if (typeof data.bullets === 'string') restoredBullets = splitPastedTextIntoBullets(data.bullets);
             sessionBulletEditor.setBullets(restoredBullets);
             updateTimerUI(true); renderTodoList();
-            timerInterval = setInterval(() => document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime)), 1000);
+            updateLiveTimelineCells();
+            timerInterval = setInterval(() => {
+                document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
+                updateLiveTimelineCells();
+            }, 1000);
         }
     }
     function formatTimeMs(ms) { const s = Math.floor(ms / 1000); return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }

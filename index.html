@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeLog</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
 
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     </style>
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -16,7 +20,7 @@
     <!-- Header -->
     <header class="main-header">
         <div class="header-left">
-            <div class="brand">TimeLog.</div>
+            <div class="brand">TimeLog<span class="brand-dot">.</span></div>
             <nav class="nav-tabs">
                 <button class="tab-btn active" id="tabBtnTracker" onclick="switchTab('tracker')">타이머</button>
                 <button class="tab-btn" id="tabBtnManagement" onclick="switchTab('management')">운영 관리</button>
@@ -236,6 +240,31 @@
             </div>
         </div>
 
+        <div class="form-group mt-md">
+            <label>온라인 백업 (Google Drive)</label>
+            <p class="backup-help">
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>에서
+                OAuth 클라이언트 ID(웹 애플리케이션)를 발급받아 아래에 입력하세요. "승인된 자바스크립트 원본"에 이 사이트 주소를
+                등록하고, 프로젝트에서 <strong>Google Drive API</strong>를 사용 설정해야 합니다. 백업 파일은 내 드라이브에
+                이 앱이 만든 파일에만 접근하는 권한(drive.file)으로 저장됩니다.
+            </p>
+            <input type="text" id="driveClientId" placeholder="OAuth 클라이언트 ID 붙여넣기" onchange="saveDriveClientId(this.value)">
+
+            <div class="flex-between mt-sm">
+                <span class="text-sm">자동 백업 시각</span>
+                <input type="time" id="driveBackupTime" class="time-input-compact" onchange="saveDriveBackupTime(this.value)">
+            </div>
+            <p class="backup-help backup-help--tight">앱을 열 때 오늘 백업이 없으면 자동으로 1회 백업하고, 탭을 열어둔 채 지정 시각이 되면 다시 갱신합니다.</p>
+
+            <div class="flex-between mt-sm">
+                <span class="text-xs text-muted" id="driveBackupStatus">아직 백업한 적 없음</span>
+                <div class="flex-row flex-gap-sm">
+                    <button class="btn-ghost btn-ghost--xs" onclick="restoreFromDrive()">복원</button>
+                    <button class="btn-ghost btn-ghost--xs" onclick="backupToDrive()">지금 백업</button>
+                </div>
+            </div>
+        </div>
+
         <div class="modal-actions">
             <button class="btn-ghost" onclick="closeModal('settingsModal')">취소</button>
             <button class="btn-solid" onclick="saveSettings()">저장</button>
@@ -351,6 +380,7 @@
 <script src="js/state.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/tracker.js"></script>
 <script src="js/history.js"></script>
 <script src="js/timeline.js"></script>

@@ -127,6 +127,35 @@
                     <div class="timeline-grid">${cellsHtml}</div>
                 </div>`;
         });
+
+        updateLiveTimelineCells();
+    }
+
+    // Highlights, with a blinking animation, the grid cells covering the time span of a
+    // currently-running timer session (from its start time to "now"). This is a lightweight
+    // DOM update (no full re-render) so it can run every second without disrupting the grid.
+    function updateLiveTimelineCells() {
+        const grid = document.getElementById('ganttRows');
+        if (!grid) return;
+        grid.querySelectorAll('.time-cell.live-cell').forEach(c => c.classList.remove('live-cell'));
+
+        if (!currentJob || !startTime) return;
+
+        const selectedDate = document.getElementById('hiddenDateInput').value;
+        const sessionStart = new Date(startTime);
+        if (dateToIso(sessionStart) !== selectedDate) return;
+
+        const interval = parseInt(appSettings.roundSetting || '10', 10);
+        const startMins = timeToMins(dateToHHMM(sessionStart));
+        const elapsedMins = Math.floor((new Date() - sessionStart) / 60000);
+        const effectiveEndMins = startMins + elapsedMins;
+
+        grid.querySelectorAll(`.time-cell[data-job="${currentJob.id}"]`).forEach(cell => {
+            const cellMins = parseInt(cell.dataset.time, 10);
+            if (cellMins <= effectiveEndMins && cellMins + interval > startMins) {
+                cell.classList.add('live-cell');
+            }
+        });
     }
 
     function handleCellClick(e, jobId, cellMins, isFilled) {
