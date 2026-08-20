@@ -134,10 +134,15 @@
     // Highlights, with a blinking animation, the grid cells covering the time span of a
     // currently-running timer session (from its start time to "now"). This is a lightweight
     // DOM update (no full re-render) so it can run every second without disrupting the grid.
+    // Adjacent live cells are merged into one continuous block (same run-start/mid/end/single +
+    // run-attach-right treatment used for filled/lunch-time cells), instead of blinking as
+    // separate small squares.
     function updateLiveTimelineCells() {
         const grid = document.getElementById('ganttRows');
         if (!grid) return;
-        grid.querySelectorAll('.time-cell.live-cell').forEach(c => c.classList.remove('live-cell'));
+        grid.querySelectorAll('.time-cell.live-cell').forEach(c => {
+            c.classList.remove('live-cell', 'run-start', 'run-mid', 'run-end', 'run-single', 'run-attach-right');
+        });
 
         if (!currentJob || !startTime) return;
 
@@ -150,21 +155,88 @@
         const elapsedMins = Math.floor((new Date() - sessionStart) / 60000);
         const effectiveEndMins = startMins + elapsedMins;
 
-        grid.querySelectorAll(`.time-cell[data-job="${currentJob.id}"]`).forEach(cell => {
+        const cells = Array.from(grid.querySelectorAll(`.time-cell[data-job="${currentJob.id}"]`));
+        const liveFlags = cells.map(cell => {
             const cellMins = parseInt(cell.dataset.time, 10);
-            if (cellMins <= effectiveEndMins && cellMins + interval > startMins) {
-                cell.classList.add('live-cell');
-            }
+            return cellMins <= effectiveEndMins && cellMins + interval > startMins;
+        });
+
+        cells.forEach((cell, i) => {
+            if (!liveFlags[i]) return;
+            cell.classList.add('live-cell');
+            const prevLive = i > 0 && liveFlags[i - 1];
+            const nextLive = i < cells.length - 1 && liveFlags[i + 1];
+            if (!prevLive && !nextLive) cell.classList.add('run-single');
+            else if (!prevLive && nextLive) cell.classList.add('run-start', 'run-attach-right');
+            else if (prevLive && nextLive) cell.classList.add('run-mid', 'run-attach-right');
+            else cell.classList.add('run-end');
         });
     }
 
+    // Clicking a filled cell deletes just that interval slice from the underlying log entry —
+    // trimming the start/end, or splitting the entry in two if the clicked slice is in the middle.
     function handleCellClick(e, jobId, cellMins, isFilled) {
         if (!isFilled) return;
+        deleteTimeBlock(jobId, cellMins);
+    }
+
+    function deleteTimeBlock(jobId, blockStartMins) {
         const dateStr = document.getElementById('hiddenDateInput').value;
-        const targetLog = getHistory().find(h => h.jobId === jobId && h.date === dateStr && timeToMins(h.startTime) <= cellMins && timeToMins(h.endTime) > cellMins);
-        if (targetLog) {
-            openEditLogTime(targetLog.id);
+        const interval = parseInt(appSettings.roundSetting || '10', 10);
+        const blockEndMins = blockStartMins + interval;
+
+        const history = getHistory();
+        const idx = history.findIndex(h => h.jobId === jobId && h.date === dateStr &&
+            timeToMins(h.startTime) <= blockStartMins && timeToMins(h.endTime) > blockStartMins);
+        if (idx === -1) return;
+
+        const entry = history[idx];
+        if (entry.bullets && entry.bullets.length > 0) {
+            if (!confirm('이 시간에 작성된 메모가 있습니다. 그래도 삭제하시겠습니까?')) return;
         }
+        const entryStart = timeToMins(entry.startTime);
+        const entryEnd = timeToMins(entry.endTime);
+
+        const minsToTimeStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+        const minsToDateObj = (mins) => new Date(`${dateStr}T${minsToTimeStr(mins)}:00`);
+
+        if (entryStart === blockStartMins && entryEnd === blockEndMins) {
+            // The block IS the whole entry — remove it entirely.
+            history.splice(idx, 1);
+        } else if (entryStart === blockStartMins) {
+            // Trim from the front.
+            const newStart = minsToDateObj(blockEndMins);
+            const endObj = new Date(entry.endTimeObj || minsToDateObj(entryEnd));
+            entry.startTime = minsToTimeStr(blockEndMins);
+            entry.startTimeObj = newStart.toISOString();
+            entry.durationMs = endObj - newStart;
+        } else if (entryEnd === blockEndMins) {
+            // Trim from the back.
+            const newEnd = minsToDateObj(blockStartMins);
+            const startObj = new Date(entry.startTimeObj || minsToDateObj(entryStart));
+            entry.endTime = minsToTimeStr(blockStartMins);
+            entry.endTimeObj = newEnd.toISOString();
+            entry.durationMs = newEnd - startObj;
+        } else {
+            // The block is in the middle — split into two entries, both keeping a copy of the notes.
+            const startObj = new Date(entry.startTimeObj || minsToDateObj(entryStart));
+            const firstEnd = minsToDateObj(blockStartMins);
+            const secondStart = minsToDateObj(blockEndMins);
+            const originalEnd = new Date(entry.endTimeObj || minsToDateObj(entryEnd));
+
+            entry.endTime = minsToTimeStr(blockStartMins);
+            entry.endTimeObj = firstEnd.toISOString();
+            entry.durationMs = firstEnd - startObj;
+
+            const secondPiece = createHistoryObject(
+                { id: entry.jobId, opsCode: entry.opsCode, opsName: entry.opsName, taskCode: entry.taskCode, taskName: entry.taskName },
+                secondStart, originalEnd, [...(entry.bullets || [])]
+            );
+            history.splice(idx + 1, 0, secondPiece);
+        }
+
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        renderAll();
     }
 
     function startPaint(e, jobId, mins, isDisabled) {

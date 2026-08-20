@@ -42,32 +42,35 @@
         let newS = sObj.getTime();
         let newE = eObj.getTime();
 
-        const sameJobLogs = history.filter(h => h.date === dateStr && h.jobId === job.id);
+        // Keep merging with any touching/overlapping same-operation entry, and re-check after each
+        // merge — the newly combined range may now also reach a further entry (e.g. filling the gap
+        // between two existing blocks should collapse all three into one, not just the nearer one).
+        let mergedBullets = [];
         let mergedWithExisting = false;
+        let mergedAny = true;
+        while (mergedAny) {
+            mergedAny = false;
+            for (let i = 0; i < history.length; i++) {
+                const l = history[i];
+                if (l.date !== dateStr || l.jobId !== job.id) continue;
+                const lS = new Date(l.startTimeObj || `${l.date}T${l.startTime}:00`).getTime();
+                const lE = new Date(l.endTimeObj || `${l.date}T${l.endTime}:00`).getTime();
 
-        for (let l of sameJobLogs) {
-            const lS = new Date(l.startTimeObj || `${l.date}T${l.startTime}:00`).getTime();
-            const lE = new Date(l.endTimeObj || `${l.date}T${l.endTime}:00`).getTime();
-
-            if (Math.max(newS, lS) <= Math.min(newE, lE) + 60000) {
-                const combinedStart = new Date(Math.min(newS, lS));
-                const combinedEnd = new Date(Math.max(newE, lE));
-                
-                l.startTimeObj = combinedStart.toISOString();
-                l.endTimeObj = combinedEnd.toISOString();
-                l.startTime = combinedStart.toTimeString().substring(0, 5);
-                l.endTime = combinedEnd.toTimeString().substring(0, 5);
-                l.durationMs = combinedEnd - combinedStart;
-                
-                if (bullets && bullets.length > 0) {
-                    l.bullets = [...(l.bullets || []), ...bullets];
+                if (Math.max(newS, lS) <= Math.min(newE, lE) + 60000) {
+                    newS = Math.min(newS, lS);
+                    newE = Math.max(newE, lE);
+                    if (l.bullets && l.bullets.length) mergedBullets = [...mergedBullets, ...l.bullets];
+                    history.splice(i, 1);
+                    mergedWithExisting = true;
+                    mergedAny = true;
+                    break;
                 }
-                mergedWithExisting = true;
-                break;
             }
         }
 
         if (mergedWithExisting) {
+            if (bullets && bullets.length > 0) mergedBullets = [...mergedBullets, ...bullets];
+            history.unshift(createHistoryObject(job, new Date(newS), new Date(newE), mergedBullets));
             localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
             return true;
         }

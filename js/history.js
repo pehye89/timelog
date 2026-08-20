@@ -137,19 +137,50 @@
         if (!s || !e) return alert('시간을 입력해주세요.');
         if (timeToMins(e) <= timeToMins(s)) return alert('종료 시간은 시작 시간보다 늦어야 합니다.');
 
-        const history = getHistory(); const idx = history.findIndex(h => h.id === id);
+        let history = getHistory();
+        const idx = history.findIndex(h => h.id === id);
         if (idx === -1) return;
         const item = history[idx];
 
-        const hasConflict = history.some(h => h.id !== id && h.date === item.date &&
-            !(timeToMins(e) <= timeToMins(h.startTime) || timeToMins(s) >= timeToMins(h.endTime)));
-        if (hasConflict && !confirm('선택한 시간대가 다른 기록과 겹칩니다. 계속 저장하시겠습니까?')) return;
+        let newS = new Date(`${item.date}T${s}:00`).getTime();
+        let newE = new Date(`${item.date}T${e}:00`).getTime();
 
-        const sObj = new Date(`${item.date}T${s}:00`);
-        const eObj = new Date(`${item.date}T${e}:00`);
-        item.startTime = s; item.endTime = e;
-        item.startTimeObj = sObj.toISOString(); item.endTimeObj = eObj.toISOString();
-        item.durationMs = eObj - sObj;
+        // Merge with any other record of the SAME operation that now overlaps or touches
+        // (gap <= 1 min) the edited time range, combining their time span and bullets.
+        let mergedBullets = item.bullets || [];
+        let mergedAny = true;
+        while (mergedAny) {
+            mergedAny = false;
+            for (let i = 0; i < history.length; i++) {
+                const h = history[i];
+                if (h.id === id || h.date !== item.date || h.jobId !== item.jobId) continue;
+                const hS = new Date(h.startTimeObj || `${h.date}T${h.startTime}:00`).getTime();
+                const hE = new Date(h.endTimeObj || `${h.date}T${h.endTime}:00`).getTime();
+                if (Math.max(newS, hS) <= Math.min(newE, hE) + 60000) {
+                    newS = Math.min(newS, hS);
+                    newE = Math.max(newE, hE);
+                    if (h.bullets && h.bullets.length) mergedBullets = [...mergedBullets, ...h.bullets];
+                    history.splice(i, 1);
+                    mergedAny = true;
+                    break;
+                }
+            }
+        }
+
+        // A different operation's record can still legitimately conflict — warn but allow.
+        const hasCrossJobConflict = history.some(h => h.id !== id && h.date === item.date && h.jobId !== item.jobId &&
+            !(newE <= new Date(h.startTimeObj || `${h.date}T${h.startTime}:00`).getTime() ||
+              newS >= new Date(h.endTimeObj || `${h.date}T${h.endTime}:00`).getTime()));
+        if (hasCrossJobConflict && !confirm('선택한 시간대가 다른 운영의 기록과 겹칩니다. 계속 저장하시겠습니까?')) return;
+
+        const finalIdx = history.findIndex(h => h.id === id);
+        const sObj = new Date(newS); const eObj = new Date(newE);
+        history[finalIdx].startTime = sObj.toTimeString().substring(0, 5);
+        history[finalIdx].endTime = eObj.toTimeString().substring(0, 5);
+        history[finalIdx].startTimeObj = sObj.toISOString();
+        history[finalIdx].endTimeObj = eObj.toISOString();
+        history[finalIdx].durationMs = newE - newS;
+        history[finalIdx].bullets = mergedBullets;
 
         localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
         closeModal('editLogTimeModal');
