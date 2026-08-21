@@ -457,14 +457,15 @@
         .time-cell.lunch-time { background: var(--lunch-block-gray); opacity: 1; cursor: not-allowed; }
         .time-cell.painting { background: var(--text-muted) !important; opacity: 0.5; }
 
-        /* Live progress indicator: blinks on the cells covering a currently-running timer session */
-        @keyframes live-cell-blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
+        /* Live progress indicator: cells covering a currently-running timer session. Brightness is
+           toggled by JS in sync with the wall-clock second (even second = solid, odd second = dim)
+           rather than a free-running CSS animation, so it visibly ticks with real time. */
         .time-cell.live-cell {
             background: var(--job-color);
-            animation: live-cell-blink 1.1s ease-in-out infinite;
+            transition: opacity 0.15s ease;
+        }
+        .time-cell.live-cell.live-cell-dim {
+            opacity: 0.35;
         }
 
         /* Adjacent cells of the same run (a job's filled block, or the lunch block) visually merge into a

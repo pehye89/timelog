@@ -131,17 +131,18 @@
         updateLiveTimelineCells();
     }
 
-    // Highlights, with a blinking animation, the grid cells covering the time span of a
+    // Highlights, with a blinking indicator, the grid cells covering the time span of a
     // currently-running timer session (from its start time to "now"). This is a lightweight
     // DOM update (no full re-render) so it can run every second without disrupting the grid.
     // Adjacent live cells are merged into one continuous block (same run-start/mid/end/single +
     // run-attach-right treatment used for filled/lunch-time cells), instead of blinking as
-    // separate small squares.
+    // separate small squares. Brightness alternates with the real wall-clock second (even = solid,
+    // odd = dim), since this function is called once per second in step with the timer tick.
     function updateLiveTimelineCells() {
         const grid = document.getElementById('ganttRows');
         if (!grid) return;
         grid.querySelectorAll('.time-cell.live-cell').forEach(c => {
-            c.classList.remove('live-cell', 'run-start', 'run-mid', 'run-end', 'run-single', 'run-attach-right');
+            c.classList.remove('live-cell', 'live-cell-dim', 'run-start', 'run-mid', 'run-end', 'run-single', 'run-attach-right');
         });
 
         if (!currentJob || !startTime) return;
@@ -154,6 +155,7 @@
         const startMins = timeToMins(dateToHHMM(sessionStart));
         const elapsedMins = Math.floor((new Date() - sessionStart) / 60000);
         const effectiveEndMins = startMins + elapsedMins;
+        const isOddSecond = new Date().getSeconds() % 2 === 1;
 
         const cells = Array.from(grid.querySelectorAll(`.time-cell[data-job="${currentJob.id}"]`));
         const liveFlags = cells.map(cell => {
@@ -164,6 +166,7 @@
         cells.forEach((cell, i) => {
             if (!liveFlags[i]) return;
             cell.classList.add('live-cell');
+            if (isOddSecond) cell.classList.add('live-cell-dim');
             const prevLive = i > 0 && liveFlags[i - 1];
             const nextLive = i < cells.length - 1 && liveFlags[i + 1];
             if (!prevLive && !nextLive) cell.classList.add('run-single');
