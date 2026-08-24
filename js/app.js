@@ -11,6 +11,8 @@
         document.addEventListener('mouseup', endPaint);
         runAppOpenAutoBackup();
         startDriveScheduledBackupWatcher();
+        setInterval(updateNowLine, 30000);
+        window.addEventListener('resize', updateNowLine);
     });
 
     function switchTab(tab) { 

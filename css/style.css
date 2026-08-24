@@ -435,6 +435,27 @@
         .timeline-scroll { overflow-x: auto; padding-bottom: var(--space-6); margin-top: var(--space-4); user-select: none; scrollbar-width: none; }
         .timeline-scroll::-webkit-scrollbar { display: none; }
         .timeline-container { min-width: var(--timeline-min-width); position: relative; }
+
+        /* Current-time indicator line, overlaid on the timeline grid when viewing today */
+        .now-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--red);
+            pointer-events: none;
+            z-index: 5;
+        }
+        .now-line-dot {
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+        }
         .time-ticks { display: flex; padding-left: calc(var(--timeline-label-width) + 25px); padding-bottom: var(--space-3); margin-bottom: var(--space-3); }
         .tick { font-size: var(--fs-2xs); font-weight: var(--fw-bold); color: var(--text-muted); border-left: 1px solid var(--border-subtle); padding-left: var(--space-3); }
         

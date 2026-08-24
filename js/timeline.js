@@ -42,7 +42,10 @@
 
         const hideUnexecuted = document.getElementById('hideUnexecutedTimeline')?.checked;
         if (hideUnexecuted) {
-            displayJobs = displayJobs.filter(job => history.some(h => h.jobId === job.id));
+            const isRunningToday = currentJob && startTime && dateToIso(new Date(startTime)) === selectedDate;
+            displayJobs = displayJobs.filter(job =>
+                history.some(h => h.jobId === job.id) || (isRunningToday && currentJob.id === job.id)
+            );
         }
 
         const getFirstLogTime = (jobId) => {
@@ -129,6 +132,46 @@
         });
 
         updateLiveTimelineCells();
+        updateNowLine();
+    }
+
+    // Positions a thin vertical line on the grid marking the current wall-clock time — only shown
+    // when viewing today and within working hours. Uses actual measured positions of a rendered
+    // .timeline-grid cell (rather than hardcoded offsets) so it stays aligned even if column widths
+    // or the label width change.
+    function updateNowLine() {
+        const line = document.getElementById('nowLineIndicator');
+        if (!line) return;
+
+        const selectedDate = document.getElementById('hiddenDateInput').value;
+        const wStart = timeToMins(appSettings.workStart);
+        const wEnd = timeToMins(appSettings.workEnd);
+        const now = new Date();
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+
+        if (selectedDate !== getTodayIso() || wEnd <= wStart || nowMins < wStart || nowMins > wEnd) {
+            line.classList.add('hidden');
+            return;
+        }
+
+        const container = document.getElementById('ganttContainer');
+        const rows = document.getElementById('ganttRows');
+        const gridEl = rows ? rows.querySelector('.timeline-grid') : null;
+        if (!container || !rows || !gridEl) {
+            line.classList.add('hidden');
+            return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const rowsRect = rows.getBoundingClientRect();
+        const gridRect = gridEl.getBoundingClientRect();
+        const ratio = (nowMins - wStart) / (wEnd - wStart);
+
+        line.style.left = `${(gridRect.left - containerRect.left) + ratio * gridRect.width}px`;
+        line.style.top = `${rowsRect.top - containerRect.top}px`;
+        line.style.height = `${rowsRect.height}px`;
+        line.style.bottom = 'auto';
+        line.classList.remove('hidden');
     }
 
     // Highlights, with a blinking CSS animation, the grid cells covering the time span of a
