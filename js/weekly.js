@@ -20,17 +20,20 @@
         renderWeekly();
     }
 
-    function renderWeeklySummary(weekHistory) {
+    function renderWeeklySummary(weekHistory, referenceDateStr) {
         const container = document.getElementById('weeklySummaryContainer');
         const emptyMsg = document.getElementById('weeklySummaryEmptyMsg');
         if (!container) return;
 
-        const presetStatusMap = {};
-        getPresets().forEach(p => { presetStatusMap[p.id] = p.status; });
+        const presetsMap = {};
+        getPresets().forEach(p => { presetsMap[p.id] = p; });
 
         const totalsByJob = {};
         weekHistory.forEach(h => {
-            if (!totalsByJob[h.jobId]) totalsByJob[h.jobId] = { ms: 0, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: presetStatusMap[h.jobId] || 'active' };
+            if (!totalsByJob[h.jobId]) {
+                const asOfStatus = getStatusAsOfDate(presetsMap[h.jobId] || {}, referenceDateStr);
+                totalsByJob[h.jobId] = { ms: 0, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: asOfStatus };
+            }
             totalsByJob[h.jobId].ms += h.durationMs || 0;
         });
 
@@ -82,16 +85,17 @@
 
         const today = new Date(); today.setHours(0,0,0,0);
         document.getElementById('todayBtnWeekly').classList.toggle('is-today', today >= mon && today <= sun);
-        
+
+        const referenceDateStr = dateToIso(sun);
         const presets = getPresets().filter(p => p.status !== 'deleted');
         const history = getHistory();
         const weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
 
-        renderWeeklySummary(weekHistory);
+        renderWeeklySummary(weekHistory, referenceDateStr);
 
         const c = document.getElementById('weeklyContainer'); c.innerHTML = '';
 
-        const sortedPresets = sortJobsByStatusAndCode(presets);
+        const sortedPresets = sortJobsByStatusAndCode(presets.map(p => ({ ...p, status: getStatusAsOfDate(p, referenceDateStr) })));
 
         if(sortedPresets.length === 0) {
             return c.innerHTML = '<div class="empty-state">해당하는 운영이 없습니다.</div>';

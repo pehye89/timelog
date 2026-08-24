@@ -59,6 +59,16 @@
         });
     }
 
+    // The current status a job carries (job.status) reflects "right now" — but a report for a past
+    // period should show what the status was AS OF that period, not today. 관리업무 has no dates and
+    // is always shown as such. Otherwise: if the job's completion date is on or before the reference
+    // date, it had already been marked 완료 by then; if not (or no end date yet), it was still 진행중.
+    function getStatusAsOfDate(job, referenceDateStr) {
+        if (job.status === 'admin') return 'admin';
+        if (job.endDate && job.endDate <= referenceDateStr) return 'completed';
+        return 'active';
+    }
+
     const STATUS_PILL_INFO = {
         active: { label: '진행중', cls: 'active' },
         completed: { label: '완료', cls: 'completed' },
