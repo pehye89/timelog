@@ -131,19 +131,29 @@
         updateLiveTimelineCells();
     }
 
-    // Highlights, with a blinking indicator, the grid cells covering the time span of a
-    // currently-running timer session (from its start time to "now"). This is a lightweight
-    // DOM update (no full re-render) so it can run every second without disrupting the grid.
-    // Adjacent live cells are merged into one continuous block (same run-start/mid/end/single +
-    // run-attach-right treatment used for filled/lunch-time cells), instead of blinking as
-    // separate small squares. Brightness alternates with the real wall-clock second (even = solid,
-    // odd = dim), since this function is called once per second in step with the timer tick.
+    // Highlights, with a blinking CSS animation, the grid cells covering the time span of a
+    // currently-running timer session (from its start time to "now"). This is a lightweight DOM
+    // update (no full re-render) so it can run every second without disrupting the grid. Adjacent
+    // live cells are merged into one continuous block (same run-start/mid/end/single +
+    // run-attach-right treatment used for filled/lunch-time cells), instead of showing as separate
+    // small squares.
+    //
+    // To keep every live cell blinking in perfect lockstep (rather than drifting out of phase, or
+    // jumping/speeding up when their phase gets nudged mid-cycle), every currently-live cell is
+    // force-restarted together each time this runs: remove the class, read a layout property to
+    // force the browser to actually apply that removal (otherwise a same-frame remove+re-add can be
+    // silently skipped), then re-add it. Since this restart happens every 1000ms and the CSS
+    // animation's own duration is also 1000ms (see below), each restart lands exactly where the
+    // previous cycle was already finishing — so there's no visible stutter, just a continuous,
+    // steady, perfectly-synced blink.
     function updateLiveTimelineCells() {
         const grid = document.getElementById('ganttRows');
         if (!grid) return;
-        grid.querySelectorAll('.time-cell.live-cell').forEach(c => {
-            c.classList.remove('live-cell', 'live-cell-dim', 'run-start', 'run-mid', 'run-end', 'run-single', 'run-attach-right');
+        const previouslyLive = grid.querySelectorAll('.time-cell.live-cell');
+        previouslyLive.forEach(c => {
+            c.classList.remove('live-cell', 'run-start', 'run-mid', 'run-end', 'run-single', 'run-attach-right');
         });
+        if (previouslyLive.length) void grid.offsetWidth; // force reflow so the removal actually registers
 
         if (!currentJob || !startTime) return;
 
@@ -155,7 +165,6 @@
         const startMins = timeToMins(dateToHHMM(sessionStart));
         const elapsedMins = Math.floor((new Date() - sessionStart) / 60000);
         const effectiveEndMins = startMins + elapsedMins;
-        const isOddSecond = new Date().getSeconds() % 2 === 1;
 
         const cells = Array.from(grid.querySelectorAll(`.time-cell[data-job="${currentJob.id}"]`));
         const liveFlags = cells.map(cell => {
@@ -166,7 +175,6 @@
         cells.forEach((cell, i) => {
             if (!liveFlags[i]) return;
             cell.classList.add('live-cell');
-            if (isOddSecond) cell.classList.add('live-cell-dim');
             const prevLive = i > 0 && liveFlags[i - 1];
             const nextLive = i < cells.length - 1 && liveFlags[i + 1];
             if (!prevLive && !nextLive) cell.classList.add('run-single');
