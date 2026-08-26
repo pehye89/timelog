@@ -320,6 +320,7 @@
         }
         .bullet-editor:focus-within { border-color: var(--border-subtle); }
         .bullet-row { display: flex; align-items: flex-start; gap: 8px; transition: margin-left 0.12s ease; }
+        .bullet-tab-hint { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: var(--space-2); padding-left: 12px; }
         .bullet-dot { width: 4px; height: 4px; margin-top: 10px; border-radius: 50%; background: var(--text-muted); opacity: 0.6; flex-shrink: 0; }
         .bullet-dot--sub { width: 3px; height: 3px; opacity: 0.35; }
         .bullet-input {
@@ -477,6 +478,7 @@
         .time-cell.disabled-cell { background: color-mix(in srgb, var(--bg_base) 120%, var(--bg-base)); opacity: 0.6; cursor: not-allowed; }
         .time-cell.lunch-time { background: var(--lunch-block-gray); opacity: 1; cursor: not-allowed; }
         .time-cell.painting { background: var(--text-muted) !important; opacity: 0.5; }
+        .time-cell.erasing { background: var(--red) !important; opacity: 0.65; }
 
         /* Live progress indicator: all cells covering a currently-running timer session blink
            together via a single shared CSS animation. Duration is intentionally exactly 1s to match

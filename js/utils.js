@@ -118,6 +118,10 @@
     function timeToMins(timeStr) { const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; }
     function getRandomColor() { return appSettings.palette[Math.floor(Math.random() * appSettings.palette.length)]; }
 
+    // Shared across every bullet editor on the page — once the person uses Tab anywhere, the hint
+    // stops showing everywhere (not just in that one editor instance), until the page is reloaded.
+    let hasEverUsedTabHint = false;
+
     // Obsidian-style bullet list editor: each bullet is its own row with a
     // visual "•" marker to its left (not typed text). Enter creates a new
     // bullet row (inheriting the current row's indent level); Shift+Enter
@@ -129,6 +133,18 @@
         containerEl.classList.add('bullet-editor');
         containerEl.innerHTML = '';
         const INDENT_PX = 20;
+
+        // Small hint teaching the Tab-to-indent feature: shown whenever there's a second bullet
+        // line (so it doesn't clutter the very first line) — until Tab has been used once anywhere
+        // on the page, after which it stays hidden for the rest of this page load.
+        const hintEl = document.createElement('div');
+        hintEl.className = 'bullet-tab-hint hidden';
+        hintEl.textContent = 'Tab을 누르면 하위 항목으로 정리할 수 있어요';
+        containerEl.insertAdjacentElement('afterend', hintEl);
+
+        function updateTabHint() {
+            hintEl.classList.toggle('hidden', hasEverUsedTabHint || getRowEls().length < 2);
+        }
 
         function autoResize(ta) {
             ta.style.height = 'auto';
@@ -182,6 +198,8 @@
             ta.addEventListener('keydown', (e) => {
                 if (e.key === 'Tab') {
                     e.preventDefault();
+                    hasEverUsedTabHint = true;
+                    updateTabHint();
                     const rowEls = getRowEls();
                     const idx = rowEls.indexOf(row);
                     if (e.shiftKey) {
@@ -197,6 +215,7 @@
                     row.after(newRow);
                     autoResize(newRow.querySelector('.bullet-input'));
                     newRow.querySelector('.bullet-input').focus();
+                    updateTabHint();
                     emitChange();
                 } else if (e.key === 'Backspace' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
                     const rows = getRows();
@@ -210,6 +229,7 @@
                         row.remove();
                         prevTa.focus();
                         prevTa.selectionStart = prevTa.selectionEnd = mergePos;
+                        updateTabHint();
                         emitChange();
                     }
                 }
@@ -236,6 +256,7 @@
                     containerEl.appendChild(buildRow(text, level));
                 });
                 getRows().forEach(autoResize);
+                updateTabHint();
             },
             focus: () => {
                 const rows = getRows();

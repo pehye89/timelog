@@ -1,6 +1,7 @@
     let timerInterval = null; let startTime = null; let currentJob = null;
     let jobCollapseState = {}; 
     let paintState = { isPainting: false, jobId: null, startMins: null, currentMins: null };
+    let eraseState = { isErasing: false, jobId: null, cellsSet: new Set() };
     let currentWeekDate = new Date();
     let timelineJobOrder = [];
     let draggedRowIndex = null;

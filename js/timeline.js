@@ -113,7 +113,7 @@
                 }
                 else if (isAnyFilled) cellClass = 'disabled-cell';
 
-                cellsHtml += `<div class="time-cell ${cellClass}" data-job="${job.id}" data-time="${cellMins}" onclick="handleCellClick(event, ${job.id}, ${cellMins}, ${isMyFilled})" onmousedown="startPaint(event, ${job.id}, ${cellMins}, ${isAnyFilled || isLunchCell})" onmouseenter="hoverPaint(${job.id}, ${cellMins})"></div>`;
+                cellsHtml += `<div class="time-cell ${cellClass}" data-job="${job.id}" data-time="${cellMins}" onmousedown="startPaint(event, ${job.id}, ${cellMins}, ${isAnyFilled || isLunchCell}); startErase(event, ${job.id}, ${cellMins}, ${isMyFilled})" onmouseenter="hoverPaint(${job.id}, ${cellMins}); hoverErase(${job.id}, ${cellMins}, ${isMyFilled})"></div>`;
             }
             
             const truncName = truncate(job.opsName, 16);
@@ -227,34 +227,30 @@
         });
     }
 
-    // Clicking a filled cell deletes just that interval slice from the underlying log entry —
-    // trimming the start/end, or splitting the entry in two if the clicked slice is in the middle.
-    function handleCellClick(e, jobId, cellMins, isFilled) {
-        if (!isFilled) return;
-        deleteTimeBlock(jobId, cellMins);
-    }
-
-    function deleteTimeBlock(jobId, blockStartMins) {
-        const dateStr = document.getElementById('hiddenDateInput').value;
+    // Deletes just one interval slice from the underlying log entry for jobId — trimming the
+    // start/end, or splitting the entry in two if the clicked slice is in the middle. Pure mutation
+    // on the given `history` array (no confirm, no save, no render) so callers can batch several of
+    // these together and only save/confirm once. Returns whether anything changed, and whether this
+    // particular slice was an exact full-entry removal that had notes on it (the only case where
+    // notes actually get lost — trims and splits both keep the entry's notes).
+    function deleteTimeBlockCore(history, jobId, dateStr, blockStartMins) {
         const interval = parseInt(appSettings.roundSetting || '10', 10);
         const blockEndMins = blockStartMins + interval;
 
-        const history = getHistory();
         const idx = history.findIndex(h => h.jobId === jobId && h.date === dateStr &&
             timeToMins(h.startTime) <= blockStartMins && timeToMins(h.endTime) > blockStartMins);
-        if (idx === -1) return;
+        if (idx === -1) return { changed: false, notesLost: false };
 
         const entry = history[idx];
-        if (entry.bullets && entry.bullets.length > 0) {
-            if (!confirm('이 시간에 작성된 메모가 있습니다. 그래도 삭제하시겠습니까?')) return;
-        }
         const entryStart = timeToMins(entry.startTime);
         const entryEnd = timeToMins(entry.endTime);
+        const isFullRemoval = entryStart === blockStartMins && entryEnd === blockEndMins;
+        const notesLost = isFullRemoval && !!(entry.bullets && entry.bullets.length > 0);
 
         const minsToTimeStr = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
         const minsToDateObj = (mins) => new Date(`${dateStr}T${minsToTimeStr(mins)}:00`);
 
-        if (entryStart === blockStartMins && entryEnd === blockEndMins) {
+        if (isFullRemoval) {
             // The block IS the whole entry — remove it entirely.
             history.splice(idx, 1);
         } else if (entryStart === blockStartMins) {
@@ -289,8 +285,65 @@
             history.splice(idx + 1, 0, secondPiece);
         }
 
+        return { changed: true, notesLost };
+    }
+
+    // Commits one or more block deletions for a single job/day as one save+render. Only warns if a
+    // note-bearing entry would actually be fully removed — trimming or splitting never loses notes,
+    // so those never trigger the warning.
+    function commitBlockDeletions(jobId, blockStartsMinsList) {
+        const dateStr = document.getElementById('hiddenDateInput').value;
+        const history = getHistory();
+
+        let anyChanged = false;
+        let notesLostCount = 0;
+        [...blockStartsMinsList].sort((a, b) => a - b).forEach(mins => {
+            const result = deleteTimeBlockCore(history, jobId, dateStr, mins);
+            if (result.changed) anyChanged = true;
+            if (result.notesLost) notesLostCount++;
+        });
+        if (!anyChanged) return;
+
+        if (notesLostCount > 0) {
+            const msg = notesLostCount === 1
+                ? '삭제하려는 구간 중 메모가 작성된 기록이 있습니다. 그래도 삭제하시겠습니까?'
+                : `삭제하려는 구간 중 메모가 작성된 기록이 ${notesLostCount}건 있습니다. 그래도 삭제하시겠습니까?`;
+            if (!confirm(msg)) return;
+        }
+
         localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
         renderAll();
+    }
+
+    // ---- Drag-to-erase: mousedown on a filled cell starts erasing, dragging over more filled
+    // cells (of the same job) adds them, mouseup commits all of them as a single batch. ----
+    function startErase(e, jobId, mins, isFilled) {
+        if (e.button !== 0 || !isFilled) return;
+        eraseState = { isErasing: true, jobId, cellsSet: new Set([mins]) };
+        updateEraseVisuals();
+    }
+
+    function hoverErase(jobId, mins, isFilled) {
+        if (!eraseState.isErasing || eraseState.jobId !== jobId || !isFilled) return;
+        eraseState.cellsSet.add(mins);
+        updateEraseVisuals();
+    }
+
+    function updateEraseVisuals() {
+        document.querySelectorAll('.time-cell.erasing').forEach(c => c.classList.remove('erasing'));
+        if (!eraseState.isErasing) return;
+        document.querySelectorAll(`.time-cell[data-job="${eraseState.jobId}"]`).forEach(cell => {
+            if (eraseState.cellsSet.has(parseInt(cell.dataset.time, 10))) cell.classList.add('erasing');
+        });
+    }
+
+    function endErase(forceCancel = false) {
+        if (!eraseState.isErasing) return;
+        const state = { jobId: eraseState.jobId, cellsSet: eraseState.cellsSet };
+        eraseState.isErasing = false;
+        document.querySelectorAll('.time-cell.erasing').forEach(c => c.classList.remove('erasing'));
+        if (forceCancel === true || (typeof forceCancel === 'object' && forceCancel.type === 'mouseleave')) return;
+        commitBlockDeletions(state.jobId, Array.from(state.cellsSet));
     }
 
     function startPaint(e, jobId, mins, isDisabled) {

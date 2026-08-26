@@ -9,6 +9,7 @@
         });
         renderAll(); checkActiveTimer();
         document.addEventListener('mouseup', endPaint);
+        document.addEventListener('mouseup', () => endErase());
         runAppOpenAutoBackup();
         startDriveScheduledBackupWatcher();
         setInterval(updateNowLine, 30000);
