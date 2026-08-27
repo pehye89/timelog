@@ -43,21 +43,53 @@
         renderManagement();
     }
 
-    function toggleStatus(id) {
-        const p = getPresets(); const i = p.findIndex(x => x.id === id);
-        if(i > -1) { 
-            const newStatus = p[i].status === 'completed' ? 'active' : 'completed';
-            p[i].status = newStatus;
-            if (newStatus === 'completed' && !p[i].endDate) {
-                p[i].endDate = getTodayIso();
-            }
-            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p)); 
-            const filtered = p.filter(x => x.status === mgmtStatusTab);
-            const totalPages = Math.ceil(filtered.length / MGMT_ITEMS_PER_PAGE) || 1;
-            if (mgmtCurrentPage > totalPages) mgmtCurrentPage = totalPages;
-            renderAll(); 
+    // 진행중 ↔ 완료: click opens a small dropdown with the single next action, then shows a toast
+    // once applied. (No sub-category — just the two states.)
+    function openStatusQuickMenu(e, jobId, isCurrentlyDone) {
+        e.stopPropagation();
+        const menu = document.getElementById('quickCompleteMenu');
+        menu.innerHTML = '';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quick-complete-item';
+        if (isCurrentlyDone) {
+            btn.textContent = '진행중으로 변경';
+            btn.onclick = () => setJobStatus(jobId, 'active');
+        } else {
+            btn.textContent = '완료';
+            btn.onclick = () => setJobStatus(jobId, 'completed');
         }
+        menu.appendChild(btn);
+
+        // .quick-complete-menu uses position:fixed (viewport-relative), so the raw
+        // getBoundingClientRect() values are used directly — adding window.scrollX/scrollY here
+        // would double-count the scroll offset and push the menu away from the button whenever
+        // the page is scrolled.
+        const rect = e.currentTarget.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + 6}px`;
+        menu.style.left = `${rect.left}px`;
+        menu.classList.remove('hidden');
     }
+
+    function setJobStatus(jobId, newStatus) {
+        const p = getPresets(); const idx = p.findIndex(x => x.id === jobId);
+        if (idx > -1) {
+            p[idx].status = newStatus;
+            if (newStatus === 'completed' && !p[idx].endDate) p[idx].endDate = getTodayIso();
+            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+            renderAll();
+            showToast(newStatus === 'completed' ? '완료되었습니다' : '진행중으로 변경되었습니다');
+        }
+        document.getElementById('quickCompleteMenu').classList.add('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('quickCompleteMenu');
+        if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
 
     // Soft delete: moves the preset into the "삭제된 운영" tab, kept for DELETED_RETENTION_DAYS days.
     function deleteJobFromEditModal() {
@@ -156,6 +188,8 @@
             let datesRowHtml;
             if (isDeleted) {
                 datesRowHtml = `<div class="job-panel-dates"><span class="badge-deleted">삭제됨 · ${daysRemaining(job.deletedAt)}일 후 완전 삭제</span></div>`;
+            } else if (isAdmin) {
+                datesRowHtml = '';
             } else {
                 datesRowHtml = `
                     <div class="job-panel-dates">
@@ -175,7 +209,7 @@
             } else {
                 actionsHtml = `
                     <button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>
-                    <button class="status-toggle-btn status-toggle-btn--sm ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>`;
+                    <button class="status-toggle-btn status-toggle-btn--sm ${isDone ? 'completed' : 'active'}" onclick="openStatusQuickMenu(event, ${job.id}, ${isDone})">${isDone ? '완료' : '진행중'}<span class="status-toggle-caret">▾</span></button>`;
             }
 
             c.innerHTML += `

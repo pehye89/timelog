@@ -137,7 +137,7 @@
             const isDone = job.status === 'completed';
             const isAdmin = job.status === 'admin';
 
-            const datesRowHtml = `
+            const datesRowHtml = isAdmin ? '' : `
                 <div class="job-panel-dates">
                     <strong>시작</strong> ${job.startDate || '-'}
                     <span class="sep">·</span>
@@ -164,7 +164,7 @@
                             <span class="job-panel-total">
                                 총 ${formatDuration(totalMs)}
                             </span>
-                            ${isAdmin ? '' : `<button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="toggleStatus(${job.id})">${isDone ? '완료' : '진행중'}</button>`}
+                            ${isAdmin ? '' : `<button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="openStatusQuickMenu(event, ${job.id}, ${isDone})">${isDone ? '완료' : '진행중'}<span class="status-toggle-caret">▾</span></button>`}
                         </div>
                     </div>
 

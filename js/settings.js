@@ -81,6 +81,7 @@
         const paletteTheme = selectedPalette ? selectedPalette.value : (appSettings.paletteTheme || 'themeGrad');
 
         appSettings = { 
+            ...appSettings,
             theme: document.getElementById('settingTheme').value, 
             mainColor: document.getElementById('settingMainColor').value,
             roundSetting: document.getElementById('roundSetting').value,

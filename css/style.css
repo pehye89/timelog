@@ -659,7 +659,7 @@
         .job-panel-info { min-width: 0; }
         .job-panel-info--half { max-width: 65%; }
         .job-panel-title { font-weight: var(--fw-black); font-size: var(--fs-md); color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.02em; }
-        .job-panel-dates { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--space-1); }
+        .job-panel-dates { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 0; }
         .job-panel-dates strong { font-weight: var(--fw-black); }
         .job-panel-dates .sep { margin: 0 var(--space-2); }
         .job-panel-actions { display: flex; gap: var(--space-4); align-items: center; flex-shrink: 0; }
@@ -679,7 +679,7 @@
 
         /* Log card (Timeline tab, per-operation grouped bullet log) */
         .log-card { background: var(--bg-hover); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-9) var(--space-9) var(--space-7) var(--space-9); }
-        .log-card-head { margin-bottom: var(--space-4); gap: var(--space-6); align-items: flex-start; }
+        .log-card-head { margin-bottom: var(--space-9); gap: var(--space-6); align-items: flex-start; }
         .log-card-total { padding-top: 2px; }
         .log-card-title { font-size: var(--fs-md); font-weight: var(--fw-black); color: var(--text-strong); }
         .log-card-total { font-size: var(--fs-base); font-weight: var(--fw-black); color: var(--text-strong); flex-shrink: 0; }
@@ -810,4 +810,50 @@
         .modal-box--sm { max-width: 380px; }
         .duration-live { font-size: var(--fs-lg); font-weight: var(--fw-black); color: var(--text-strong); text-align: center; padding: var(--space-6) 0; }
         .text-error { color: var(--red); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
-        .app-version-tag { text-align: center; margin-top: var(--space-8); font-size: var(--fs-2xs); color: var(--text-muted); opacity: 0.45; letter-spacing: 0.02em; }
+        .app-version-tag { font-weight: var(--fw-medium); opacity: 0.6; letter-spacing: 0.02em; }
+
+        /* Brief non-blocking toast notification (e.g. "완료되었습니다") */
+        .toast-notice {
+            position: fixed;
+            left: 50%;
+            bottom: 40px;
+            transform: translate(-50%, 8px);
+            background: var(--accent-main);
+            color: #ffffff;
+            padding: var(--space-6) var(--space-10);
+            border-radius: var(--radius-full);
+            font-size: var(--fs-sm);
+            font-weight: var(--fw-bold);
+            box-shadow: var(--shadow-md);
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: var(--z-modal);
+            pointer-events: none;
+        }
+        .toast-notice--visible { opacity: 1; transform: translate(-50%, 0); }
+
+        /* Shared floating dropdown for the 진행중 ↔ 완료 quick action */
+        .quick-complete-menu {
+            position: fixed;
+            z-index: var(--z-modal);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            padding: var(--space-3);
+            min-width: 160px;
+        }
+        .quick-complete-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: var(--space-4) var(--space-6);
+            font-size: var(--fs-sm);
+            font-weight: var(--fw-semibold);
+            color: var(--text-muted);
+        }
+        .quick-complete-item:hover { background: var(--bg-subtle); color: var(--text-strong); }
+        .status-toggle-caret { font-size: var(--fs-2xs); margin-left: var(--space-1); opacity: 0.7; }

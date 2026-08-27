@@ -2,6 +2,20 @@
     function dateToIso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
     function dateToHHMM(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
     function escapeHtml(str) { return str ? String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ''; }
+
+    // Brief, non-blocking toast notification that fades in and auto-dismisses after ~1.5s.
+    function showToast(message) {
+        const el = document.createElement('div');
+        el.className = 'toast-notice';
+        el.textContent = message;
+        document.body.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('toast-notice--visible'));
+        setTimeout(() => {
+            el.classList.remove('toast-notice--visible');
+            setTimeout(() => el.remove(), 200);
+        }, 1500);
+    }
+
     function truncate(str, max) { if(!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
     
     function formatDuration(ms) {

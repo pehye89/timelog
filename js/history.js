@@ -13,6 +13,9 @@
             return;
         }
 
+        const presetsMap = {};
+        getPresets().forEach(p => { presetsMap[p.id] = p; });
+
         const grouped = {};
         dayHistory.forEach(item => {
             if (!grouped[item.jobId]) {
@@ -31,6 +34,10 @@
         Object.values(grouped).forEach(group => {
             group.logs.sort((a, b) => a.startTime.localeCompare(b.startTime));
             const totalMs = group.logs.reduce((sum, l) => sum + (l.durationMs || 0), 0);
+            const job = presetsMap[group.jobId];
+            const datesRowHtml = (job && job.status !== 'admin')
+                ? `<div class="job-panel-dates"><strong>시작</strong> ${job.startDate || '-'}<span class="sep">·</span><strong>완료</strong> ${job.endDate || '-'}</div>`
+                : '';
 
             let treeHtml = '<div class="log-tree">';
             group.logs.forEach(row => {
@@ -56,9 +63,10 @@
                     <div class="flex-between log-card-head">
                         <div class="job-panel-info">
                             <div class="log-card-title truncate-line">${escapeHtml(group.opsName)}</div>
-                            <div class="mt-xs truncate-line">
+                            <div class="truncate-line">
                                 ${renderOpTaskMeta(group.opsCode, group.taskName, group.taskCode)}
                             </div>
+                            ${datesRowHtml}
                         </div>
                         <div class="log-card-total">
                             ${formatDuration(totalMs)}
