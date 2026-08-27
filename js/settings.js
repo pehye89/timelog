@@ -122,7 +122,7 @@
                 if(data.presets) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(data.presets));
                 if(data.history) localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(data.history));
                 
-                alert('데이터를 성공적으로 불러왔습니다.'); loadSettings(); renderAll(); closeModal('settingsModal');
+                alert('데이터를 성공적으로 불러왔습니다.'); loadSettings(); renderAll(); closeModal('exportBackupModal');
             } catch(err) { alert('데이터 형식이 올바르지 않거나 손상된 파일입니다.'); }
         };
         reader.readAsText(file); event.target.value = ''; 

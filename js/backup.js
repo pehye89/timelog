@@ -167,7 +167,7 @@
             if (data.presets) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(data.presets));
             if (data.history) localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(data.history));
             alert('구글 드라이브 백업에서 복원했습니다.');
-            loadSettings(); renderAll(); closeModal('settingsModal');
+            loadSettings(); renderAll(); closeModal('exportBackupModal');
         } catch (err) {
             alert('복원에 실패했습니다: ' + err.message);
         }

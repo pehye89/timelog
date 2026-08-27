@@ -810,3 +810,4 @@
         .modal-box--sm { max-width: 380px; }
         .duration-live { font-size: var(--fs-lg); font-weight: var(--fw-black); color: var(--text-strong); text-align: center; padding: var(--space-6) 0; }
         .text-error { color: var(--red); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+        .app-version-tag { text-align: center; margin-top: var(--space-8); font-size: var(--fs-2xs); color: var(--text-muted); opacity: 0.45; letter-spacing: 0.02em; }
