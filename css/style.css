@@ -248,12 +248,15 @@
         .btn-danger-ghost:hover { color: var(--red); background: var(--red-light); }
 
         .status-toggle-btn {
+            display: inline-block;
             font-size: var(--fs-2xs); font-weight: var(--fw-bold); padding: var(--space-2) var(--space-6); border-radius: var(--radius-full); border: none; cursor: pointer; transition: var(--transition);
         }
         .status-toggle-btn.active { background: var(--accent-main); color: #ffffff; }
         .status-toggle-btn.completed { background: var(--bg-subtle); color: var(--text-muted); }
         /* Size variant used inline within compact list rows */
         .status-toggle-btn--sm { padding: 6px var(--space-7); font-size: var(--fs-xs); }
+        /* Non-interactive (e.g. 주간보고, where progress status can't be edited) */
+        .status-toggle-btn--readonly { cursor: default; }
 
         /* Circular icon buttons (settings gear, page nav arrows sized explicitly) */
         .icon-btn { width: var(--icon-btn-size); height: var(--icon-btn-size); padding: 0; }

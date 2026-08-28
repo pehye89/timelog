@@ -164,7 +164,7 @@
                             <span class="job-panel-total">
                                 총 ${formatDuration(totalMs)}
                             </span>
-                            ${isAdmin ? '' : `<button class="status-toggle-btn ${isDone ? 'completed' : 'active'}" onclick="openStatusQuickMenu(event, ${job.id}, ${isDone})">${isDone ? '완료' : '진행중'}<span class="status-toggle-caret">▾</span></button>`}
+                            ${isAdmin ? '' : `<span class="status-toggle-btn status-toggle-btn--readonly ${isDone ? 'completed' : 'active'}">${isDone ? '완료' : '진행중'}</span>`}
                         </div>
                     </div>
 
