@@ -11,7 +11,7 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     </style>
-    <link rel="stylesheet" href="css/style.css?v=260828.01">
+    <link rel="stylesheet" href="css/style.css?v=260828.03">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!--
@@ -71,9 +71,7 @@
             <div class="flex-between mb-sm">
                 <h3 class="section-eyebrow">Timeline</h3>
                 <div>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="hideUnexecutedTimeline" checked onchange="renderHistory()"> 미실행 숨기기
-                    </label>
+                    <button type="button" class="toggle-chip active" id="hideUnexecutedToggle" onclick="toggleHideUnexecuted()">미실행 숨기기</button>
                 </div>
             </div>
             <div class="timeline-scroll" onmouseleave="endPaint(true); endErase(true)">
@@ -89,12 +87,16 @@
             <div class="section-box">
                 <div class="list-header">
                     <h3>운영 목록</h3>
-                    <button class="btn-text" onclick="openModal('addJobModal')">+ 추가</button>
+                    <div class="flex-row flex-gap-sm">
+                        <button type="button" class="toggle-chip" id="showCompletedToggle" onclick="toggleShowCompleted()">완료 포함</button>
+                        <button class="btn-text" onclick="openModal('addJobModal')">+ 추가</button>
+                    </div>
                 </div>
                 <div id="jobPresetList"></div>
                 <div id="emptyJobMsg" class="empty-state hidden">
                     등록된 운영 단위가 없습니다.
                 </div>
+                <div id="jobPresetPagination" class="pagination"></div>
             </div>
 
             <div>
@@ -201,7 +203,7 @@
 
     <div class="quick-complete-menu hidden" id="quickCompleteMenu"></div>
 
-    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 260828.01</span></footer>
+    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 260828.03</span></footer>
 </div>
 
 <!-- MODALS -->
@@ -411,17 +413,17 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=260828.01"></script>
-<script src="js/state.js?v=260828.01"></script>
-<script src="js/storage.js?v=260828.01"></script>
-<script src="js/settings.js?v=260828.01"></script>
-<script src="js/backup.js?v=260828.01"></script>
-<script src="js/tracker.js?v=260828.01"></script>
-<script src="js/history.js?v=260828.01"></script>
-<script src="js/timeline.js?v=260828.01"></script>
-<script src="js/management.js?v=260828.01"></script>
-<script src="js/weekly.js?v=260828.01"></script>
-<script src="js/modals.js?v=260828.01"></script>
-<script src="js/app.js?v=260828.01"></script>
+<script src="js/utils.js?v=260828.03"></script>
+<script src="js/state.js?v=260828.03"></script>
+<script src="js/storage.js?v=260828.03"></script>
+<script src="js/settings.js?v=260828.03"></script>
+<script src="js/backup.js?v=260828.03"></script>
+<script src="js/tracker.js?v=260828.03"></script>
+<script src="js/history.js?v=260828.03"></script>
+<script src="js/timeline.js?v=260828.03"></script>
+<script src="js/management.js?v=260828.03"></script>
+<script src="js/weekly.js?v=260828.03"></script>
+<script src="js/modals.js?v=260828.03"></script>
+<script src="js/app.js?v=260828.03"></script>
 </body>
 </html>

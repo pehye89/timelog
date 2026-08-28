@@ -1,8 +1,17 @@
     function updateVisualDate(d) {
         const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0');
+        const newDateStr = `${yyyy}-${mm}-${dd}`;
+        const prevDateStr = document.getElementById('hiddenDateInput').value;
+        if (newDateStr !== prevDateStr) {
+            // Manual timeline row order is scoped to the day it was set on — a fresh day starts
+            // back at execution-based ordering.
+            timelineOrderManuallySet = false;
+            timelineJobOrder = [];
+            trackerListPage = 1;
+        }
         document.getElementById('visualDateText').innerText = `${yyyy}.${mm}.${dd} ${DAYS_EN[d.getDay()]}`;
-        document.getElementById('hiddenDateInput').value = `${yyyy}-${mm}-${dd}`;
-        document.getElementById('todayBtnTracker').classList.toggle('is-today', `${yyyy}-${mm}-${dd}` === getTodayIso());
+        document.getElementById('hiddenDateInput').value = newDateStr;
+        document.getElementById('todayBtnTracker').classList.toggle('is-today', newDateStr === getTodayIso());
     }
     function changeDate(offset) {
         const inputVal = document.getElementById('hiddenDateInput').value; if(!inputVal) return;
@@ -22,15 +31,30 @@
     function renderTodoList() {
         const listEl = document.getElementById('jobPresetList'); listEl.innerHTML = '';
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        const visiblePresets = sortJobsByStatusAndCode(getVisiblePresetsForDate(selectedDate));
+        const showCompleted = document.getElementById('showCompletedToggle')?.classList.contains('active');
+        let visiblePresets = sortTodoListItems(getVisiblePresetsForDate(selectedDate, showCompleted));
+
+        // Completed items older than TRACKER_COMPLETED_VISIBLE_DAYS don't clutter the daily list —
+        // for anything further back, use the 운영 관리 탭's 완료 목록 instead.
+        const completedCutoffIso = dateToIso(new Date(Date.now() - TRACKER_COMPLETED_VISIBLE_DAYS * 24 * 60 * 60 * 1000));
+        visiblePresets = visiblePresets.filter(p => p.status !== 'completed' || !p.endDate || p.endDate >= completedCutoffIso);
+
         document.getElementById('emptyJobMsg').style.display = visiblePresets.length === 0 ? 'block' : 'none';
 
-        visiblePresets.forEach(job => {
+        const totalPages = Math.ceil(visiblePresets.length / TRACKER_LIST_PAGE_SIZE) || 1;
+        if (trackerListPage > totalPages) trackerListPage = totalPages;
+        const pageItems = visiblePresets.slice((trackerListPage - 1) * TRACKER_LIST_PAGE_SIZE, trackerListPage * TRACKER_LIST_PAGE_SIZE);
+
+        pageItems.forEach(job => {
             const isActive = currentJob && currentJob.id === job.id;
+            const completedTag = job.status === 'completed' ? statusPillHtml('completed') : '';
             listEl.innerHTML += `
                 <div class="todo-item ${isActive ? 'active' : ''}">
                     <div class="todo-item-body">
-                        <div class="todo-title" title="${escapeHtml(job.opsName)}">${escapeHtml(job.opsName)}</div>
+                        <div class="todo-title-row">
+                            ${completedTag}
+                            <div class="todo-title" title="${escapeHtml(job.opsName)}">${escapeHtml(job.opsName)}</div>
+                        </div>
                         <div class="todo-meta">${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}</div>
                     </div>
                     <button class="play-btn" onclick="togglePlay(${job.id})">
@@ -38,6 +62,22 @@
                     </button>
                 </div>`;
         });
+
+        const paginationEl = document.getElementById('jobPresetPagination');
+        paginationEl.innerHTML = '';
+        if (totalPages > 1) {
+            for (let i = 1; i <= totalPages; i++) {
+                paginationEl.innerHTML += `<button class="page-btn ${i === trackerListPage ? 'active' : ''}" onclick="changeTrackerListPage(${i})">${i}</button>`;
+            }
+        }
+    }
+
+    function changeTrackerListPage(page) { trackerListPage = page; renderTodoList(); }
+
+    function toggleShowCompleted() {
+        document.getElementById('showCompletedToggle').classList.toggle('active');
+        trackerListPage = 1;
+        renderAll();
     }
 
     function roundDateToNearest(dateObj, intervalMins) { 
@@ -66,7 +106,13 @@
         currentJob = job; startTime = new Date();
         localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify({ startTime: startTime.toISOString(), job, bullets: sessionBulletEditor.getBullets() }));
         updateTimerUI(true); renderTodoList();
-        updateLiveTimelineCells();
+        // Use a full renderHistory() (not just updateLiveTimelineCells()) here: if "미실행 숨기기" is on
+        // and this job has no logged entries yet today, its timeline row won't exist in the DOM until
+        // a real re-render happens — a live-cell class toggle alone has nothing to attach to.
+        // renderHistory() rebuilds the grid now that currentJob/startTime are already set, so the row
+        // (kept visible by the "currently running" exception in the hide-unexecuted filter) appears
+        // immediately instead of only after some unrelated re-render.
+        renderHistory();
         timerInterval = setInterval(() => {
             document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
             updateLiveTimelineCells();
@@ -109,7 +155,7 @@
             else if (typeof data.bullets === 'string') restoredBullets = splitPastedTextIntoBullets(data.bullets);
             sessionBulletEditor.setBullets(restoredBullets);
             updateTimerUI(true); renderTodoList();
-            updateLiveTimelineCells();
+            renderHistory();
             timerInterval = setInterval(() => {
                 document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
                 updateLiveTimelineCells();

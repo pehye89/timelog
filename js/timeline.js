@@ -19,6 +19,7 @@
         timelineJobOrder.splice(draggedRowIndex, 1);
         timelineJobOrder.splice(targetIndex, 0, movedId);
         draggedRowIndex = null;
+        timelineOrderManuallySet = true;
         renderHistory();
     }
 
@@ -38,9 +39,10 @@
         headerTicks.innerHTML = ticksHtml;
 
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        let displayJobs = getVisiblePresetsForDate(selectedDate);
+        const showCompleted = document.getElementById('showCompletedToggle')?.classList.contains('active');
+        let displayJobs = getVisiblePresetsForDate(selectedDate, showCompleted);
 
-        const hideUnexecuted = document.getElementById('hideUnexecutedTimeline')?.checked;
+        const hideUnexecuted = document.getElementById('hideUnexecutedToggle')?.classList.contains('active');
         if (hideUnexecuted) {
             const isRunningToday = currentJob && startTime && dateToIso(new Date(startTime)) === selectedDate;
             displayJobs = displayJobs.filter(job =>
@@ -48,23 +50,16 @@
             );
         }
 
-        const getFirstLogTime = (jobId) => {
-            const jobLogs = history.filter(h => h.jobId === jobId);
-            if (!jobLogs.length) return '99:99';
-            return jobLogs.map(l => l.startTime).sort()[0];
-        };
+        const defaultSortedJobs = sortJobsByExecution(displayJobs, history);
 
-        const defaultSortedJobs = [...displayJobs].sort((a, b) => {
-            const tA = getFirstLogTime(a.id); const tB = getFirstLogTime(b.id);
-            if (tA !== tB) return tA.localeCompare(tB);
-            if ((a.opsCode || '') !== (b.opsCode || '')) return (a.opsCode || '').localeCompare(b.opsCode || '');
-            if ((a.taskCode || '') !== (b.taskCode || '')) return (a.taskCode || '').localeCompare(b.taskCode || '');
-            return (a.opsName || '').localeCompare(b.opsName || '');
-        });
-
-        if (timelineJobOrder.length === 0 || timelineJobOrder.length !== defaultSortedJobs.length) {
+        if (!timelineOrderManuallySet) {
+            // No manual drag has happened yet (or the page/date changed since) — keep continuously
+            // re-deriving the row order from execution time every render, so newly-logged work
+            // moves rows up immediately instead of freezing at whatever order first appeared.
             timelineJobOrder = defaultSortedJobs.map(j => j.id);
-        } else {
+        } else if (timelineJobOrder.length === 0 || timelineJobOrder.length !== defaultSortedJobs.length) {
+            // The set of visible jobs changed size (new job appeared/disappeared) — re-derive, but
+            // keep as much of the user's manual order as still applies.
             const currentIds = defaultSortedJobs.map(j => j.id);
             timelineJobOrder = timelineJobOrder.filter(id => currentIds.includes(id));
             currentIds.forEach(id => { if (!timelineJobOrder.includes(id)) timelineJobOrder.push(id); });
@@ -390,4 +385,9 @@
         document.getElementById('manualAddStart').value = `${h1}:${m1}`;
         document.getElementById('manualAddEnd').value = `${h2}:${m2}`;
         manualAddBulletEditor.setBullets([]);
+    }
+
+    function toggleHideUnexecuted() {
+        document.getElementById('hideUnexecutedToggle').classList.toggle('active');
+        renderHistory();
     }

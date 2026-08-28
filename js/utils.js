@@ -34,16 +34,62 @@
         return `<span class="op-meta">${parts.join(' ')}</span>`;
     }
 
-    function getVisiblePresetsForDate(selectedDate) {
+    function getVisiblePresetsForDate(selectedDate, includeAllCompleted) {
         const sel = selectedDate || document.getElementById('hiddenDateInput').value || getTodayIso();
+        // "최근 30일" is relative to today's real date, not whichever day is being viewed.
+        const thirtyDaysAgoDate = new Date(); thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
+        const thirtyDaysAgo = dateToIso(thirtyDaysAgoDate);
         return getPresets().filter(p => {
             if (p.status === 'active') return true;
             if (p.status === 'admin') return true;
             if (p.status === 'completed') {
+                if (includeAllCompleted) {
+                    if (!p.endDate) return true;
+                    return p.endDate >= thirtyDaysAgo;
+                }
                 if (!p.endDate) return true;
                 return p.endDate >= sel;
             }
             return false;
+        });
+    }
+
+    // Orders jobs by whether/when they were executed (logged) on the given day — jobs with an
+    // earlier first log entry today come first, jobs with no entry today sort last — rather than by
+    // status (완료 여부). Used for both the 운영목록 list and the timeline grid rows so a job that's
+    // actively being worked on today is always prioritized regardless of its 진행중/완료 status.
+    function sortJobsByExecution(jobs, historyForDay) {
+        const getFirstLogTime = (jobId) => {
+            const logs = (historyForDay || []).filter(h => h.jobId === jobId);
+            if (!logs.length) return '99:99';
+            return logs.map(l => l.startTime).sort()[0];
+        };
+        return [...jobs].sort((a, b) => {
+            const tA = getFirstLogTime(a.id); const tB = getFirstLogTime(b.id);
+            if (tA !== tB) return tA.localeCompare(tB);
+            if ((a.opsCode || '') !== (b.opsCode || '')) return (a.opsCode || '').localeCompare(b.opsCode || '');
+            if ((a.taskCode || '') !== (b.taskCode || '')) return (a.taskCode || '').localeCompare(b.taskCode || '');
+            return (a.opsName || '').localeCompare(b.opsName || '');
+        });
+    }
+
+    // 타이머 탭 운영목록 전용 정렬: 완료된 운영은 항상 맨 아래로 밀리고, 완료 항목끼리는 가장 최근에
+    // 완료된 것이 위로 온다. 완료가 아닌 항목(진행중/관리업무)은 항상 운영번호(opsCode) 순으로 정렬된다.
+    function sortTodoListItems(jobs) {
+        return [...jobs].sort((a, b) => {
+            const aDone = a.status === 'completed';
+            const bDone = b.status === 'completed';
+            if (aDone !== bDone) return aDone ? 1 : -1;
+
+            if (aDone && bDone) {
+                const ad = a.endDate || ''; const bd = b.endDate || '';
+                if (ad !== bd) return bd.localeCompare(ad); // most recently completed first
+                return (a.opsCode || '').localeCompare(b.opsCode || '');
+            }
+
+            if ((a.opsCode || '') !== (b.opsCode || '')) return (a.opsCode || '').localeCompare(b.opsCode || '');
+            if ((a.taskCode || '') !== (b.taskCode || '')) return (a.taskCode || '').localeCompare(b.taskCode || '');
+            return (a.opsName || '').localeCompare(b.opsName || '');
         });
     }
 

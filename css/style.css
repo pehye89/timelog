@@ -258,6 +258,20 @@
         /* Non-interactive (e.g. 주간보고, where progress status can't be edited) */
         .status-toggle-btn--readonly { cursor: default; }
 
+        /* Small pill toggle for optional list filters (e.g. "완료 포함") */
+        .toggle-chip {
+            background: var(--neutral-gray);
+            border: 1px solid var(--neutral-gray-border);
+            color: var(--text-muted);
+            padding: var(--space-3) var(--space-7);
+            border-radius: var(--radius-full);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-semibold);
+            transition: var(--transition);
+        }
+        .toggle-chip:hover { color: var(--text-strong); }
+        .toggle-chip.active { background: var(--accent-main); border-color: var(--accent-main); color: #ffffff; }
+
         /* Circular icon buttons (settings gear, page nav arrows sized explicitly) */
         .icon-btn { width: var(--icon-btn-size); height: var(--icon-btn-size); padding: 0; }
 
@@ -427,9 +441,10 @@
         .todo-item:hover { background: var(--bg-hover); border-color: var(--border-subtle); }
         .todo-item.active { background: var(--bg-subtle); border-color: transparent; }
         .todo-item-body { flex: 1; margin-right: var(--space-6); min-width: 0; }
+        .todo-title-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
         
         .todo-meta { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-medium); margin-bottom: var(--space-1); display: flex; gap: var(--space-4); flex-wrap: nowrap; letter-spacing: 0.02em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .todo-title { font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--text-strong); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .todo-title { flex: 1; min-width: 0; font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--text-strong); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .play-btn { width: var(--icon-btn-size); height: var(--icon-btn-size); border-radius: 50%; border: none; background: var(--bg-surface); box-shadow: var(--shadow-sm); color: var(--text-strong); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); flex-shrink: 0; }
         .play-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-md); }

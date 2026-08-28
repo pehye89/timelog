@@ -4,6 +4,7 @@
     let eraseState = { isErasing: false, jobId: null, cellsSet: new Set() };
     let currentWeekDate = new Date();
     let timelineJobOrder = [];
+    let timelineOrderManuallySet = false;
     let draggedRowIndex = null;
     let tempSelectedColor = null;
     let isTempCustomColor = false;
@@ -14,6 +15,11 @@
     let mgmtStatusTab = 'active'; 
     let mgmtCurrentPage = 1;
     const MGMT_ITEMS_PER_PAGE = 10;
+
+    // Timer tab 운영목록 pagination + how far back completed items are shown for
+    let trackerListPage = 1;
+    const TRACKER_LIST_PAGE_SIZE = 12;
+    const TRACKER_COMPLETED_VISIBLE_DAYS = 30;
 
     // Search & Period Filter State (management tab only)
     let filters = {
