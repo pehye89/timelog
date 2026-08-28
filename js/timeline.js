@@ -42,6 +42,20 @@
         const showCompleted = document.getElementById('showCompletedToggle')?.classList.contains('active');
         let displayJobs = getVisiblePresetsForDate(selectedDate, showCompleted);
 
+        // A job that actually has logged time today should always appear in the grid, even if
+        // "완료 포함" is off — the data is real, so hiding its row would make that recorded time
+        // invisible on the timeline even though it still shows in the 타임로그 list below.
+        const executedJobIds = new Set(history.map(h => h.jobId));
+        if (executedJobIds.size) {
+            const shownIds = new Set(displayJobs.map(j => j.id));
+            const allPresets = getPresets();
+            executedJobIds.forEach(id => {
+                if (shownIds.has(id)) return;
+                const p = allPresets.find(x => x.id === id && x.status !== 'deleted');
+                if (p) { displayJobs.push(p); shownIds.add(id); }
+            });
+        }
+
         const hideUnexecuted = document.getElementById('hideUnexecutedToggle')?.classList.contains('active');
         if (hideUnexecuted) {
             const isRunningToday = currentJob && startTime && dateToIso(new Date(startTime)) === selectedDate;
