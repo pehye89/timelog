@@ -253,6 +253,7 @@
         }
         .status-toggle-btn.active { background: var(--accent-main); color: #ffffff; }
         .status-toggle-btn.completed { background: var(--bg-subtle); color: var(--text-muted); }
+        .status-toggle-btn.suspended { background: var(--accent-light); color: var(--accent-main); }
         /* Size variant used inline within compact list rows */
         .status-toggle-btn--sm { padding: 6px var(--space-7); font-size: var(--fs-xs); }
         /* Non-interactive (e.g. 주간보고, where progress status can't be edited) */
@@ -677,6 +678,8 @@
         .job-panel-info { min-width: 0; }
         .job-panel-info--half { max-width: 65%; }
         .job-panel-title { font-weight: var(--fw-black); font-size: var(--fs-md); color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.02em; }
+        /* 주간보고 "운영별 상세" 패널 전용: 운영명이 길어도 ...으로 자르지 않고 다음 줄로 넘김 */
+        .job-panel-title--wrap { overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; }
         .job-panel-dates { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 0; }
         .job-panel-dates strong { font-weight: var(--fw-black); }
         .job-panel-dates .sep { margin: 0 var(--space-2); }
@@ -731,6 +734,7 @@
         .status-pill--active { background: var(--accent-main); color: #ffffff; }
         .status-pill--completed { background: var(--neutral-gray); color: var(--text-muted); border: 1px solid var(--neutral-gray-border); }
         .status-pill--admin { background: var(--accent-light); color: var(--text-strong); }
+        .status-pill--suspended { background: var(--accent-light); color: var(--accent-main); }
 
         /* Footer Fixed at Bottom if Short Content */
         .footer {
@@ -800,6 +804,53 @@
         .filter-dates input[type="date"] { width: 130px; padding: var(--space-4) var(--space-5); font-size: var(--fs-sm); }
         .filter-dates-sep { color: var(--text-muted); font-size: var(--fs-xs); }
         .filter-clear-btn { flex-shrink: 0; margin-top: var(--space-6); padding-left: 0; }
+
+        /* Manual sort-order picker, shown as its own icon button next to the search box. */
+        .sort-toggle-wrap { position: relative; display: inline-flex; align-items: center; }
+        .sort-toggle-btn {
+            width: 30px; height: 30px;
+            padding: 0;
+            border: 1px solid var(--neutral-gray-border);
+            border-radius: 50%;
+            background: var(--neutral-gray);
+            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .sort-toggle-btn:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
+        .sort-toggle-btn.has-filter { color: var(--accent-main); }
+        .sort-popover { min-width: 160px; padding: var(--space-5); }
+        .sort-option-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: var(--space-4) var(--space-5);
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-sm);
+            font-size: var(--fs-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .sort-option-item:hover { background: var(--neutral-gray); color: var(--text-strong); }
+        .sort-option-item.active { color: var(--accent-main); font-weight: var(--fw-bold); background: var(--bg-subtle); }
+
+        .sort-popover-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+        .sort-dir-icon-btn {
+            width: 24px; height: 24px;
+            padding: 0;
+            border: 1px solid var(--neutral-gray-border);
+            border-radius: 50%;
+            background: var(--neutral-gray);
+            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .sort-dir-icon-btn:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
+        .sort-dir-icon-btn svg { transition: transform 0.15s ease; }
+        .sort-dir-icon-btn.desc svg { transform: rotate(180deg); }
 
         /* Status badge (삭제됨) */
         .badge-deleted {
