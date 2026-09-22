@@ -1,12 +1,76 @@
     function switchMgmtTab(status) {
         mgmtStatusTab = status; mgmtCurrentPage = 1;
+        document.getElementById('mgmtTabAll').classList.toggle('active', status === 'all');
         document.getElementById('mgmtTabActive').classList.toggle('active', status === 'active');
         document.getElementById('mgmtTabCompleted').classList.toggle('active', status === 'completed');
+        document.getElementById('mgmtTabSuspended').classList.toggle('active', status === 'suspended');
         document.getElementById('mgmtTabAdmin').classList.toggle('active', status === 'admin');
         document.getElementById('mgmtTabDeleted').classList.toggle('active', status === 'deleted');
         document.getElementById('mgmtBulkBtns').classList.toggle('hidden', status === 'deleted');
         renderManagement();
     }
+
+    // ---- Manual sort-order picker (icon button next to the search box) ----
+    function toggleMgmtSortMenu(e) {
+        if (e) e.stopPropagation();
+        renderMgmtSortOptions();
+        updateMgmtSortDirectionButtons();
+        document.getElementById('mgmtSortPopover').classList.toggle('open');
+    }
+
+    function renderMgmtSortOptions() {
+        const wrap = document.getElementById('mgmtSortOptions');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        Object.keys(MGMT_SORT_OPTIONS).forEach(key => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sort-option-item' + (mgmtSortOrder === key ? ' active' : '');
+            btn.textContent = MGMT_SORT_OPTIONS[key].label;
+            btn.onclick = () => setMgmtSortOrder(key);
+            wrap.appendChild(btn);
+        });
+    }
+
+    function updateMgmtSortDirectionButtons() {
+        const btn = document.getElementById('mgmtSortDirBtn');
+        if (!btn) return;
+        btn.classList.toggle('desc', mgmtSortDirection === 'desc');
+        btn.title = mgmtSortDirection === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
+    }
+
+    // Default sort is 운영번호 내림차순; the icon only lights up once the user picks something else.
+    const MGMT_SORT_DEFAULT_KEY = 'opsCode';
+    const MGMT_SORT_DEFAULT_DIRECTION = 'desc';
+    function refreshMgmtSortIndicator() {
+        const hasCustomSort = mgmtSortOrder !== MGMT_SORT_DEFAULT_KEY || mgmtSortDirection !== MGMT_SORT_DEFAULT_DIRECTION;
+        document.getElementById('mgmtSortToggle').classList.toggle('has-filter', hasCustomSort);
+    }
+
+    function setMgmtSortOrder(key) {
+        mgmtSortOrder = key;
+        renderMgmtSortOptions();
+        refreshMgmtSortIndicator();
+        renderManagement();
+    }
+
+    function toggleMgmtSortDirection() {
+        setMgmtSortDirection(mgmtSortDirection === 'asc' ? 'desc' : 'asc');
+    }
+
+    function setMgmtSortDirection(dir) {
+        mgmtSortDirection = dir;
+        updateMgmtSortDirectionButtons();
+        refreshMgmtSortIndicator();
+        renderManagement();
+    }
+
+    document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('mgmtSortFilterWrap');
+        const popover = document.getElementById('mgmtSortPopover');
+        if (!wrap || !popover || !popover.classList.contains('open')) return;
+        if (!wrap.contains(e.target)) popover.classList.remove('open');
+    });
 
     function changeMgmtPage(page) { mgmtCurrentPage = page; renderManagement(); }
 
@@ -43,24 +107,24 @@
         renderManagement();
     }
 
-    // 진행중 ↔ 완료: click opens a small dropdown with the single next action, then shows a toast
-    // once applied. (No sub-category — just the two states.)
-    function openStatusQuickMenu(e, jobId, isCurrentlyDone) {
+    // 진행중 / 완료 / 중단: click opens a small dropdown with the other available states, then
+    // shows a toast once applied.
+    function openStatusQuickMenu(e, jobId) {
         e.stopPropagation();
+        const job = getPresets().find(p => p.id === jobId);
+        if (!job) return;
         const menu = document.getElementById('quickCompleteMenu');
         menu.innerHTML = '';
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'quick-complete-item';
-        if (isCurrentlyDone) {
-            btn.textContent = '진행중으로 변경';
-            btn.onclick = () => setJobStatus(jobId, 'active');
-        } else {
-            btn.textContent = '완료';
-            btn.onclick = () => setJobStatus(jobId, 'completed');
-        }
-        menu.appendChild(btn);
+        const transitionLabels = { active: '진행중으로 변경', completed: '완료로 변경', suspended: '중단으로 변경' };
+        Object.keys(transitionLabels).filter(s => s !== job.status).forEach(s => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'quick-complete-item';
+            btn.textContent = transitionLabels[s];
+            btn.onclick = () => setJobStatus(jobId, s);
+            menu.appendChild(btn);
+        });
 
         // .quick-complete-menu uses position:fixed (viewport-relative), so the raw
         // getBoundingClientRect() values are used directly — adding window.scrollX/scrollY here
@@ -79,7 +143,8 @@
             if (newStatus === 'completed' && !p[idx].endDate) p[idx].endDate = getTodayIso();
             localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
             renderAll();
-            showToast(newStatus === 'completed' ? '완료되었습니다' : '진행중으로 변경되었습니다');
+            const toastMsgs = { active: '진행중으로 변경되었습니다', completed: '완료되었습니다', suspended: '중단으로 변경되었습니다' };
+            showToast(toastMsgs[newStatus] || '변경되었습니다');
         }
         document.getElementById('quickCompleteMenu').classList.add('hidden');
     }
@@ -129,7 +194,12 @@
     }
 
     function toggleHistoryExpand(id) { jobCollapseState[id] = !jobCollapseState[id]; renderManagement(); }
-    function toggleAllManagement(expand) { getPresets().filter(p => p.status === mgmtStatusTab).forEach(job => jobCollapseState[job.id] = expand); renderManagement(); }
+    function toggleAllManagement(expand) {
+        getPresets()
+            .filter(p => mgmtStatusTab === 'all' ? p.status !== 'deleted' : p.status === mgmtStatusTab)
+            .forEach(job => jobCollapseState[job.id] = expand);
+        renderManagement();
+    }
 
     function daysRemaining(deletedAt) {
         const elapsedMs = Date.now() - new Date(deletedAt).getTime();
@@ -143,10 +213,12 @@
         const f = filters.management;
         const allPresets = getPresets(); const c = document.getElementById('jobManagementContainer'); c.innerHTML = '';
         const allHistory = getHistory();
-        const filteredJobs = sortJobsByStatusAndCode(
+        const filteredJobs = sortJobsForManagement(
             allPresets
-                .filter(p => p.status === mgmtStatusTab)
-                .filter(p => matchesSearch(p, f.search))
+                .filter(p => mgmtStatusTab === 'all' ? p.status !== 'deleted' : p.status === mgmtStatusTab)
+                .filter(p => matchesSearch(p, f.search)),
+            mgmtSortOrder,
+            mgmtSortDirection
         );
         const totalPages = Math.ceil(filteredJobs.length / MGMT_ITEMS_PER_PAGE) || 1;
         if(mgmtCurrentPage > totalPages) mgmtCurrentPage = totalPages;
@@ -207,9 +279,10 @@
             } else if (isAdmin) {
                 actionsHtml = `<button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>`;
             } else {
+                const curLabel = STATUS_QUICK_LABELS[job.status] || '진행중';
                 actionsHtml = `
                     <button class="btn-ghost btn-ghost--sm" onclick="openEditJob(${job.id})">수정</button>
-                    <button class="status-toggle-btn status-toggle-btn--sm ${isDone ? 'completed' : 'active'}" onclick="openStatusQuickMenu(event, ${job.id}, ${isDone})">${isDone ? '완료' : '진행중'}<span class="status-toggle-caret">▾</span></button>`;
+                    <button class="status-toggle-btn status-toggle-btn--sm ${job.status}" onclick="openStatusQuickMenu(event, ${job.id})">${curLabel}<span class="status-toggle-caret">▾</span></button>`;
             }
 
             c.innerHTML += `
@@ -297,7 +370,7 @@
         document.getElementById('editTaskName').value = job.taskName || ''; 
         document.getElementById('editJobStartDate').value = job.startDate || '';
         document.getElementById('editJobEndDate').value = job.endDate || '';
-        document.getElementById('editJobStatus').value = (job.status === 'admin') ? 'admin' : (job.status === 'completed' ? 'completed' : 'active');
+        document.getElementById('editJobStatus').value = ['admin', 'completed', 'suspended'].includes(job.status) ? job.status : 'active';
         toggleEditJobDateFields();
         
         tempSelectedColor = job.color || appSettings.palette[0];

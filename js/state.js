@@ -12,8 +12,10 @@
     let manualAddBulletEditor = null;
     
     // Management Tab State
-    let mgmtStatusTab = 'active'; 
+    let mgmtStatusTab = 'all';
     let mgmtCurrentPage = 1;
+    let mgmtSortOrder = 'opsCode';
+    let mgmtSortDirection = 'desc';
     const MGMT_ITEMS_PER_PAGE = 10;
 
     // Timer tab 운영목록 pagination + how far back completed items are shown for

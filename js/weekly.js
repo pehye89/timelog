@@ -153,7 +153,7 @@
                             </button>
 
                             <div class="job-panel-info job-panel-info--half">
-                                <div class="job-panel-title">${escapeHtml(job.opsName)}</div>
+                                <div class="job-panel-title job-panel-title--wrap">${escapeHtml(job.opsName)}</div>
                                 <div class="truncate-line">
                                     ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
                                 </div>

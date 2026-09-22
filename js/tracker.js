@@ -47,7 +47,7 @@
 
         pageItems.forEach(job => {
             const isActive = currentJob && currentJob.id === job.id;
-            const completedTag = job.status === 'completed' ? statusPillHtml('completed') : '';
+            const completedTag = (job.status === 'completed' || job.status === 'suspended') ? statusPillHtml(job.status) : '';
             listEl.innerHTML += `
                 <div class="todo-item ${isActive ? 'active' : ''}">
                     <div class="todo-item-body">

@@ -41,6 +41,7 @@
         const thirtyDaysAgo = dateToIso(thirtyDaysAgoDate);
         return getPresets().filter(p => {
             if (p.status === 'active') return true;
+            if (p.status === 'suspended') return true;
             if (p.status === 'admin') return true;
             if (p.status === 'completed') {
                 if (includeAllCompleted) {
@@ -109,15 +110,31 @@
         return true;
     }
 
-    // Shared sort order used across all tabs: 관리업무 > 완료 > 진행중, then by 운영번호(opsCode).
-    const STATUS_SORT_ORDER = { admin: 0, completed: 1, active: 2 };
+    // Shared sort order used across all tabs: 관리업무 > 완료 > 중단 > 진행중, then by 운영번호(opsCode).
+    const STATUS_SORT_ORDER = { admin: 0, completed: 1, suspended: 2, active: 3 };
     function sortJobsByStatusAndCode(jobs) {
         return [...jobs].sort((a, b) => {
-            const oa = STATUS_SORT_ORDER[a.status] ?? 3; const ob = STATUS_SORT_ORDER[b.status] ?? 3;
+            const oa = STATUS_SORT_ORDER[a.status] ?? 4; const ob = STATUS_SORT_ORDER[b.status] ?? 4;
             if (oa !== ob) return oa - ob;
             return (a.opsCode || '').localeCompare(b.opsCode || '');
         });
     }
+
+    // Manual sort-order options for the 운영 관리 tab's sort-icon picker.
+    const MGMT_SORT_OPTIONS = {
+        status: { label: '상태순', fn: (jobs) => sortJobsByStatusAndCode(jobs) },
+        opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
+        name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
+        recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
+    };
+    function sortJobsForManagement(jobs, sortKey, direction) {
+        const opt = MGMT_SORT_OPTIONS[sortKey] || MGMT_SORT_OPTIONS.status;
+        const sorted = opt.fn(jobs);
+        return direction === 'desc' ? sorted.reverse() : sorted;
+    }
+
+    // 진행상태 quick-menu labels, shared by the status button and its dropdown options.
+    const STATUS_QUICK_LABELS = { active: '진행중', completed: '완료', suspended: '중단' };
 
     // The current status a job carries (job.status) reflects "right now" — but a report for a past
     // period should show what the status was AS OF that period, not today. 관리업무 has no dates and
@@ -132,6 +149,7 @@
     const STATUS_PILL_INFO = {
         active: { label: '진행중', cls: 'active' },
         completed: { label: '완료', cls: 'completed' },
+        suspended: { label: '중단', cls: 'suspended' },
         admin: { label: '관리업무', cls: 'admin' }
     };
     function statusPillHtml(status) {
