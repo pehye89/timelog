@@ -918,7 +918,7 @@
 
         /* Small modal variant + live duration readout */
         .modal-box--sm { max-width: 380px; }
-        .modal-box--wide { max-width: 1040px; }
+        .modal-box--wide { max-width: var(--container-max-width); } /* 시간로그 팝업 = 시간로그 탭과 같은 폭 */
 
         /* 시간로그 표 (타이머 탭 > 타임로그 > 시간로그) */
         .timelog-table-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-6); margin-bottom: var(--space-8); }
@@ -946,8 +946,17 @@
             overflow-wrap: anywhere; /* 공백 없는 긴 코드·URL은 칸 안에서 강제 줄바꿈 */
         }
         .timelog-table td.no-copy { padding-right: var(--space-5); }
-        /* 가운데 정렬 칸 중 복사 버튼이 있는 칸은 좌우 여백을 같게 맞춰 글자가 정확히 가운데 오도록 */
-        .timelog-table td.col-code { padding-left: 32px; }
+        /* 번호 칸: 복사 버튼 자리를 비워두지 않고 버튼을 글자 위에 겹쳐 띄움 → 칸이 좁아져 줄바꿈되는 일 없음.
+           줄바꿈은 JS에서 6자마다 넣어 준다 */
+        .timelog-table td.col-code { padding-left: var(--space-4); padding-right: var(--space-4); }
+        .timelog-table td.col-code .timelog-cell-text { white-space: pre-line; overflow-wrap: normal; word-break: normal; }
+        .timelog-table td.col-code .cell-copy-btn { box-shadow: var(--shadow-sm); }
+
+        /* 시간로그 탭: 완료일자·메모 칸 클릭 수정 */
+        .timelog-table td.editable { cursor: text; }
+        .timelog-table td.editable:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+        .timelog-table td.editing { box-shadow: inset 0 0 0 2px var(--accent-main); background: var(--bg-surface) !important; }
+        .timelog-cell-input { width: 100%; padding: var(--space-2) var(--space-3); font-size: var(--fs-sm); }
         .timelog-table tbody tr:last-child td { border-bottom: none; }
         .timelog-table td + td, .timelog-table th + th { border-left: 1px solid var(--neutral-gray-border); }
         .timelog-table tbody tr:hover td { background: var(--bg-hover); }
