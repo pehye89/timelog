@@ -282,6 +282,9 @@
         .date-nav-group { margin: var(--space-2) var(--space-11); display: flex; align-items: center; }
         .date-display { margin: 0 var(--space-5); text-align: center; font-size: var(--fs-2xl); font-weight: var(--fw-black); color: var(--text-strong); letter-spacing: -0.04em; cursor: pointer; user-select: none; transition: opacity 0.2s; }
         .date-display:hover { opacity: 0.7; }
+        /* 달력 기준점: 날짜 입력칸을 숨기되(display:none이면 달력이 엉뚱한 위치에 뜸) 날짜 글자 바로 아래에 두어 달력이 그 밑에 열리게 함 */
+        .date-nav-group { position: relative; }
+        input.date-picker-anchor[type="date"] { position: absolute; left: var(--space-5); bottom: 0; width: 1px; height: 1px; min-width: 0; padding: 0; margin: 0; border: 0; opacity: 0; pointer-events: none; }
         .nav-arrow { font-size: var(--fs-xl); color: var(--text-muted); cursor: pointer; user-select: none; width: var(--icon-btn-size); height: var(--icon-btn-size); border-radius: 50%; background: var(--bg-surface); box-shadow: var(--shadow-sm); border: none; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
         .nav-arrow:hover { color: var(--text-strong); transform: scale(1.05); box-shadow: var(--shadow-md); }
 
@@ -915,6 +918,69 @@
 
         /* Small modal variant + live duration readout */
         .modal-box--sm { max-width: 380px; }
+        .modal-box--wide { max-width: 1040px; }
+
+        /* 시간로그 표 (타이머 탭 > 타임로그 > 시간로그) */
+        .timelog-table-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-6); margin-bottom: var(--space-8); }
+        .timelog-table-sub { margin-top: var(--space-2); font-size: var(--fs-sm); color: var(--text-muted); font-weight: var(--fw-medium); }
+        /* 가로 스크롤 없이 칸 너비를 고정 비율로 나누고 긴 내용은 자동 줄바꿈 */
+        .timelog-table-scroll { border: 1px solid var(--neutral-gray-border); border-radius: var(--radius-sm); overflow: hidden; }
+        .timelog-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
+        .timelog-table th {
+            text-align: center;
+            padding: var(--space-5) var(--space-4);
+            background: var(--neutral-gray);
+            color: var(--text-muted);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            border-bottom: 1px solid var(--neutral-gray-border);
+            word-break: keep-all;
+        }
+        .timelog-table td {
+            position: relative;
+            padding: var(--space-5) 32px var(--space-5) var(--space-5);
+            vertical-align: top;
+            color: var(--text-base);
+            border-bottom: 1px solid var(--neutral-gray-border);
+            word-break: keep-all; /* 한글은 단어 단위로 줄바꿈 */
+            overflow-wrap: anywhere; /* 공백 없는 긴 코드·URL은 칸 안에서 강제 줄바꿈 */
+        }
+        .timelog-table td.no-copy { padding-right: var(--space-5); }
+        /* 가운데 정렬 칸 중 복사 버튼이 있는 칸은 좌우 여백을 같게 맞춰 글자가 정확히 가운데 오도록 */
+        .timelog-table td.col-code { padding-left: 32px; }
+        .timelog-table tbody tr:last-child td { border-bottom: none; }
+        .timelog-table td + td, .timelog-table th + th { border-left: 1px solid var(--neutral-gray-border); }
+        .timelog-table tbody tr:hover td { background: var(--bg-hover); }
+        .timelog-table .col-code { width: 10%; text-align: center; font-weight: var(--fw-semibold); color: var(--text-strong); }
+        .timelog-table .col-name { width: 14%; }
+        .timelog-table .col-num { width: 9%; text-align: center; font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold); }
+        .timelog-table .col-date { width: 10%; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+        .timelog-table .col-memo { width: auto; }
+        .timelog-table th.sortable { cursor: pointer; user-select: none; transition: var(--transition); }
+        .timelog-table th.sortable:hover { color: var(--text-strong); background: var(--neutral-gray-border); }
+        .th-sort-mark { margin-left: var(--space-2); font-size: 9px; opacity: 0.4; }
+        .th-sort-mark.active { opacity: 1; color: var(--accent-main); }
+        /* 헤더는 칸 종류와 관계없이 같은 모양·가운데 정렬 */
+        .timelog-table th.col-code, .timelog-table th.col-num, .timelog-table th.col-date { text-align: center; color: var(--text-muted); font-weight: var(--fw-bold); }
+        .timelog-table td.col-memo .timelog-cell-text { white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+
+        .cell-copy-btn {
+            position: absolute;
+            top: var(--space-4); right: var(--space-3);
+            width: 24px; height: 24px;
+            padding: 0;
+            border: 1px solid var(--neutral-gray-border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-surface);
+            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .timelog-table td:hover .cell-copy-btn, .cell-copy-btn:focus-visible, .cell-copy-btn.copied { opacity: 1; }
+        .cell-copy-btn:hover { color: var(--text-strong); background: var(--neutral-gray); }
+        .cell-copy-btn.copied { color: var(--accent-main); border-color: var(--accent-main); }
         .duration-live { font-size: var(--fs-lg); font-weight: var(--fw-black); color: var(--text-strong); text-align: center; padding: var(--space-6) 0; }
         .text-error { color: var(--red); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
         .app-version-tag { font-weight: var(--fw-medium); opacity: 0.6; letter-spacing: 0.02em; }
