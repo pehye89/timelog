@@ -246,9 +246,14 @@
     function timeToMins(timeStr) { const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; }
     function getRandomColor() { return appSettings.palette[Math.floor(Math.random() * appSettings.palette.length)]; }
 
-    // Shared across every bullet editor on the page — once the person uses Tab anywhere, the hint
-    // stops showing everywhere (not just in that one editor instance), until the page is reloaded.
-    let hasEverUsedTabHint = false;
+    // Tab을 한 번이라도 쓰면 안내 문구("Tab을 누르면…")를 모든 편집기에서 영구히 숨긴다.
+    // 브라우저에 저장하므로 새로고침·재접속 후에도 다시 나오지 않는다.
+    const STORAGE_KEY_TAB_HINT_DONE = 'wt_minimal_tab_hint_done_v1';
+    let hasEverUsedTabHint = (() => { try { return localStorage.getItem(STORAGE_KEY_TAB_HINT_DONE) === '1'; } catch (e) { return false; } })();
+    function markTabHintUsed() {
+        hasEverUsedTabHint = true;
+        try { localStorage.setItem(STORAGE_KEY_TAB_HINT_DONE, '1'); } catch (e) { /* 저장 불가 시 이번 접속 동안만 숨김 */ }
+    }
 
     // Obsidian-style bullet list editor: each bullet is its own row with a
     // visual "•" marker to its left (not typed text). Enter creates a new
@@ -326,7 +331,7 @@
             ta.addEventListener('keydown', (e) => {
                 if (e.key === 'Tab') {
                     e.preventDefault();
-                    hasEverUsedTabHint = true;
+                    markTabHintUsed();
                     updateTabHint();
                     const rowEls = getRowEls();
                     const idx = rowEls.indexOf(row);

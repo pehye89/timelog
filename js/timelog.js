@@ -36,7 +36,7 @@
     function renderTimelogTab() {
         if (document.getElementById('tabTimelogView').classList.contains('hidden')) return;
         if (!timelogTabDate) setTimelogDate(skipWeekend(new Date(), 1));
-        const { rows, totalMins } = renderTimeLogTableInto(document.getElementById('timelogTabContainer'), timelogTabDate);
+        const { rows, totalMins } = renderTimeLogTableInto(document.getElementById('timelogTabContainer'), timelogTabDate, { editable: true });
         document.getElementById('timelogTabSub').textContent = rows.length ? `총 ${totalMins}분 · ${rows.length}개 운영` : '';
         document.getElementById('timelogTabCopyAllBtn').disabled = rows.length === 0;
     }

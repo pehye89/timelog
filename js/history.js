@@ -198,13 +198,13 @@
 
     // ---- 시간로그: 선택한 날짜의 기록을 운영별로 묶어 표로 조회 (셀마다 호버 복사) ----
     const TIMELOG_TABLE_COLUMNS = [
-        { key: 'taskCode', label: '작업번호', cls: 'col-code' },
+        { key: 'taskCode', label: '작업번호', cls: 'col-code', chunk: 6 },
         { key: 'taskName', label: '작업명', cls: 'col-name' },
-        { key: 'opsCode', label: '운영번호', cls: 'col-code' },
+        { key: 'opsCode', label: '운영번호', cls: 'col-code', chunk: 6 },
         { key: 'opsName', label: '운영명', cls: 'col-name' },
         { key: 'minutes', label: '총 시간 (분)', cls: 'col-num', copyable: false },
-        { key: 'endDate', label: '완료일자', cls: 'col-date', copyable: false },
-        { key: 'memo', label: '메모', cls: 'col-memo', sortable: false }
+        { key: 'endDate', label: '완료일자', cls: 'col-date', copyable: false, editable: 'date' },
+        { key: 'memo', label: '메모', cls: 'col-memo', sortable: false, editable: 'memo' }
     ];
 
     function buildTimeLogTableRows(dateStr) {
@@ -219,7 +219,7 @@
         dayHistory.forEach(h => {
             if (!byJob.has(h.jobId)) {
                 const job = presetsMap[h.jobId] || h; // 운영 정보는 최신 값 우선, 없으면 기록 당시 값
-                byJob.set(h.jobId, { taskCode: job.taskCode || '', taskName: job.taskName || '', opsCode: job.opsCode || '', opsName: job.opsName || '', endDate: (presetsMap[h.jobId] && presetsMap[h.jobId].endDate) || '', ms: 0, bullets: [] });
+                byJob.set(h.jobId, { taskCode: job.taskCode || '', taskName: job.taskName || '', opsCode: job.opsCode || '', opsName: job.opsName || '', endDate: (presetsMap[h.jobId] && presetsMap[h.jobId].endDate) || '', jobId: h.jobId, ms: 0, bullets: [] });
             }
             const row = byJob.get(h.jobId);
             row.ms += h.durationMs || 0;
@@ -227,6 +227,8 @@
         });
         return [...byJob.values()].map(r => ({
             taskCode: r.taskCode, taskName: r.taskName, opsCode: r.opsCode, opsName: r.opsName,
+            jobId: r.jobId,
+            rawBullets: [...new Set(r.bullets)],
             minutes: String(Math.round(r.ms / 60000)),
             endDate: r.endDate,
             memo: formatMemoPlainText(r.bullets)
@@ -267,7 +269,8 @@
     }
 
     // 팝업(타이머 탭)과 시간로그 탭이 함께 쓰는 표 렌더러. 요약 문구에 쓸 총 분을 반환한다.
-    function renderTimeLogTableInto(container, dateStr) {
+    // options.editable: 시간로그 탭에서만 true — 완료일자·메모 칸을 클릭해 수정
+    function renderTimeLogTableInto(container, dateStr, options = {}) {
         const rows = sortTimeLogRows(buildTimeLogTableRows(dateStr));
         const totalMins = rows.reduce((sum, r) => sum + Number(r.minutes), 0);
         container.innerHTML = '';
@@ -306,8 +309,14 @@
                 const value = row[col.key];
                 const text = document.createElement('div');
                 text.className = 'timelog-cell-text';
-                text.textContent = value || '-';
+                // 작업번호·운영번호는 화면에서만 6자마다 줄바꿈 (복사되는 값은 원래 그대로)
+                text.textContent = value ? (col.chunk ? chunkText(value, col.chunk) : value) : '-';
                 td.appendChild(text);
+                if (options.editable && col.editable) {
+                    td.classList.add('editable');
+                    td.title = '클릭해서 수정';
+                    td.onclick = () => startTimeLogCellEdit(td, row, col.editable, dateStr);
+                }
                 if (value && col.copyable !== false) td.appendChild(createCellCopyButton(value));
                 else td.classList.add('no-copy');
             });
@@ -355,4 +364,64 @@
         copyTextToClipboard(lines.join('\n'))
             .then(() => showToast('표 전체를 복사했습니다'))
             .catch(() => showToast('복사하지 못했습니다'));
+    }
+
+
+    function chunkText(str, size) {
+        const parts = [];
+        for (let i = 0; i < str.length; i += size) parts.push(str.slice(i, i + size));
+        return parts.join('\n');
+    }
+
+    // ---- 시간로그 탭 셀 편집 (완료일자 / 메모) ----
+    function startTimeLogCellEdit(td, row, type, dateStr) {
+        if (td.classList.contains('editing')) return;
+        td.classList.add('editing');
+        td.innerHTML = '';
+        const finish = () => setTimeout(() => {
+            if (!td.contains(document.activeElement)) renderAll();
+        }, 0);
+
+        if (type === 'date') {
+            const input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'timelog-cell-input';
+            input.value = row.endDate || '';
+            input.onchange = () => saveJobEndDate(row.jobId, input.value);
+            input.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); };
+            input.addEventListener('focusout', finish);
+            td.appendChild(input);
+            input.focus();
+            return;
+        }
+
+        // 메모: 기존 타임로그 메모 편집과 같은 불릿 에디터 (Enter 새 항목, Tab 하위 항목)
+        const box = document.createElement('div');
+        td.appendChild(box);
+        const editor = createBulletEditor(box, {
+            initialBullets: row.rawBullets,
+            onChange: (bullets) => saveDayMemoForJob(row.jobId, dateStr, bullets)
+        });
+        td.addEventListener('focusout', finish);
+        editor.focus();
+    }
+
+    // 완료일자는 운영 자체의 완료일(운영 관리 탭의 "완료"와 같은 값)을 바꾼다.
+    function saveJobEndDate(jobId, value) {
+        const presets = getPresets(); const idx = presets.findIndex(p => p.id === jobId);
+        if (idx === -1) return;
+        presets[idx].endDate = value || '';
+        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+    }
+
+    // 표의 메모는 그날 해당 운영의 여러 기록을 합친 것이라, 수정한 메모는 그날 첫 기록에 모아 저장하고
+    // 나머지 기록의 메모는 비운다 (합쳐 보이는 결과가 수정한 내용과 정확히 같아지도록).
+    function saveDayMemoForJob(jobId, dateStr, bullets) {
+        const history = getHistory();
+        const entries = history
+            .filter(h => h.jobId === jobId && h.date === dateStr)
+            .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+        if (!entries.length) return;
+        entries.forEach((h, i) => { h.bullets = i === 0 ? bullets : []; });
+        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
     }
