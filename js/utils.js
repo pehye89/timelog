@@ -203,6 +203,41 @@
         }).join('');
     }
 
+    // 메모(bullets)를 복사·붙여넣기용 평문으로 변환: 각 항목은 "· 내용", 하위 단계마다 스페이스 4칸 들여쓰기.
+    // 한 항목 안의 줄바꿈(Shift+Enter)은 "· " 뒤 글자 위치에 맞춰 이어지도록 들여쓴다.
+    const MEMO_INDENT = '    ';
+    function formatMemoPlainText(arr) {
+        if (!arr || !arr.length) return '';
+        return [...new Set(arr)]
+            .map(b => parseBulletLevel(b))
+            .filter(({ text }) => text.trim().length > 0)
+            .map(({ level, text }) => {
+                const indent = MEMO_INDENT.repeat(level);
+                const [first, ...rest] = text.split('\n');
+                return [`${indent}· ${first}`, ...rest.map(line => `${indent}  ${line}`)].join('\n');
+            })
+            .join('\n');
+    }
+
+    // 클립보드 복사: https(GitHub Pages)에서는 Clipboard API, 그 외(file:// 등)에서는 textarea 방식으로 대체.
+    function copyTextToClipboard(text) {
+        const fallback = () => new Promise((resolve, reject) => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+            catch (e) { reject(e); }
+            finally { ta.remove(); }
+        });
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text).catch(fallback);
+        }
+        return fallback();
+    }
+
     // Splits raw text into bullets (used only for pasted multi-line text inside a row).
     function splitPastedTextIntoBullets(text) {
         return text.split('\n').map(s => s.replace(/^[•\-\*]\s*/, '').trim()).filter(s => s.length > 0);
