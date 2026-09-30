@@ -34,14 +34,14 @@
         return `<span class="op-meta">${parts.join(' ')}</span>`;
     }
 
-    function getVisiblePresetsForDate(selectedDate, includeAllCompleted) {
+    function getVisiblePresetsForDate(selectedDate, includeAllCompleted, includeSuspended) {
         const sel = selectedDate || document.getElementById('hiddenDateInput').value || getTodayIso();
         // "최근 30일" is relative to today's real date, not whichever day is being viewed.
         const thirtyDaysAgoDate = new Date(); thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
         const thirtyDaysAgo = dateToIso(thirtyDaysAgoDate);
         return getPresets().filter(p => {
             if (p.status === 'active') return true;
-            if (p.status === 'suspended') return true;
+            if (p.status === 'suspended') return !!includeSuspended;
             if (p.status === 'admin') return true;
             if (p.status === 'completed') {
                 if (includeAllCompleted) {
@@ -94,6 +94,19 @@
         });
     }
 
+    // 타이머 탭 운영목록의 필터·정렬 팝오버에서 고를 수 있는 정렬 옵션.
+    const TRACKER_SORT_OPTIONS = {
+        default: { label: '기본값', defaultDir: 'asc', fn: (jobs) => sortTodoListItems(jobs) },
+        opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
+        name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
+        recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
+    };
+    function sortJobsForTracker(jobs, sortKey, direction) {
+        const opt = TRACKER_SORT_OPTIONS[sortKey] || TRACKER_SORT_OPTIONS.default;
+        const sorted = opt.fn(jobs);
+        return direction === 'desc' ? sorted.reverse() : sorted;
+    }
+
     // Returns true if the job's opsCode/opsName/taskCode/taskName contains the search term (case-insensitive).
     function matchesSearch(job, search) {
         if (!search) return true;
@@ -121,14 +134,16 @@
     }
 
     // Manual sort-order options for the 운영 관리 tab's sort-icon picker.
+    // `defaultDir`가 있는 항목(기본값)은 선택 시 정렬 방향도 함께 기본값으로 되돌린다.
     const MGMT_SORT_OPTIONS = {
+        default: { label: '기본값', defaultDir: 'desc', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
         status: { label: '상태순', fn: (jobs) => sortJobsByStatusAndCode(jobs) },
         opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
         name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
         recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
     };
     function sortJobsForManagement(jobs, sortKey, direction) {
-        const opt = MGMT_SORT_OPTIONS[sortKey] || MGMT_SORT_OPTIONS.status;
+        const opt = MGMT_SORT_OPTIONS[sortKey] || MGMT_SORT_OPTIONS.default;
         const sorted = opt.fn(jobs);
         return direction === 'desc' ? sorted.reverse() : sorted;
     }

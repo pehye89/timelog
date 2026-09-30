@@ -7,7 +7,9 @@
         manualAddBulletEditor = createBulletEditor(document.getElementById('manualAddBullets'), {
             placeholder: '무엇을 했는지 입력하세요'
         });
+        restoreTrackerFilterCheckboxes();
         renderAll(); checkActiveTimer();
+        refreshMgmtSortIndicator(); refreshTrackerFilterIndicator();
         document.addEventListener('mouseup', endPaint);
         document.addEventListener('mouseup', () => endErase());
         runAppOpenAutoBackup();

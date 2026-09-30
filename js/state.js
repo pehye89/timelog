@@ -14,7 +14,7 @@
     // Management Tab State
     let mgmtStatusTab = 'all';
     let mgmtCurrentPage = 1;
-    let mgmtSortOrder = 'opsCode';
+    let mgmtSortOrder = 'default';
     let mgmtSortDirection = 'desc';
     const MGMT_ITEMS_PER_PAGE = 10;
 
@@ -22,6 +22,8 @@
     let trackerListPage = 1;
     const TRACKER_LIST_PAGE_SIZE = 12;
     const TRACKER_COMPLETED_VISIBLE_DAYS = 30;
+    let trackerSortOrder = 'default';
+    let trackerSortDirection = 'asc';
 
     // Search & Period Filter State (management tab only)
     let filters = {
@@ -71,6 +73,34 @@
     const STORAGE_KEY_HISTORY = 'wt_minimal_history_v3';
     const STORAGE_KEY_ACTIVE  = 'wt_minimal_active_v3';
     const STORAGE_KEY_SETTINGS = 'wt_minimal_settings_v3';
+    const STORAGE_KEY_SORT = 'wt_minimal_sort_v1';
+
+    // 정렬 기준(운영관리 탭 / 타이머 탭 운영목록)을 브라우저에 저장해 새로고침 후에도 유지한다.
+    // 저장값이 없거나 더 이상 존재하지 않는 옵션이면 각 탭의 기본값을 그대로 쓴다.
+    (function restoreSavedSort() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_SORT) || '{}');
+            const isValid = (opts, v) => v && typeof v.key === 'string'
+                && Object.prototype.hasOwnProperty.call(opts, v.key)
+                && (v.dir === 'asc' || v.dir === 'desc');
+            if (isValid(MGMT_SORT_OPTIONS, saved.mgmt)) { mgmtSortOrder = saved.mgmt.key; mgmtSortDirection = saved.mgmt.dir; }
+            if (isValid(TRACKER_SORT_OPTIONS, saved.tracker)) { trackerSortOrder = saved.tracker.key; trackerSortDirection = saved.tracker.dir; }
+        } catch (e) { /* 저장값이 깨졌거나 저장소 접근 불가 → 기본값 사용 */ }
+    })();
+
+    function saveSortSettings() {
+        try {
+            localStorage.setItem(STORAGE_KEY_SORT, JSON.stringify({
+                mgmt: { key: mgmtSortOrder, dir: mgmtSortDirection },
+                tracker: { key: trackerSortOrder, dir: trackerSortDirection },
+                // 타이머 탭 운영목록의 표시 항목(완료/중단 포함) 체크 상태 — DOM 체크박스가 원본
+                trackerFilter: {
+                    completed: !!document.getElementById('trackerIncludeCompleted')?.checked,
+                    suspended: !!document.getElementById('trackerIncludeSuspended')?.checked
+                }
+            }));
+        } catch (e) { /* 저장 실패 시에도 현재 화면의 정렬은 그대로 동작 */ }
+    }
     const DAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
     const defaultPresets = [

@@ -39,8 +39,9 @@
         headerTicks.innerHTML = ticksHtml;
 
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        const showCompleted = document.getElementById('showCompletedToggle')?.classList.contains('active');
-        let displayJobs = getVisiblePresetsForDate(selectedDate, showCompleted);
+        const includeCompleted = document.getElementById('trackerIncludeCompleted')?.checked;
+        const includeSuspended = document.getElementById('trackerIncludeSuspended')?.checked;
+        let displayJobs = getVisiblePresetsForDate(selectedDate, includeCompleted, includeSuspended);
 
         // A job that actually has logged time today should always appear in the grid, even if
         // "완료 포함" is off — the data is real, so hiding its row would make that recorded time

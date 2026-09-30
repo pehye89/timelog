@@ -39,18 +39,22 @@
         btn.title = mgmtSortDirection === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
     }
 
-    // Default sort is 운영번호 내림차순; the icon only lights up once the user picks something else.
-    const MGMT_SORT_DEFAULT_KEY = 'opsCode';
-    const MGMT_SORT_DEFAULT_DIRECTION = 'desc';
+    // 기본값 = 운영번호 내림차순. 아이콘은 사용자가 기본값과 다른 정렬을 골랐을 때만 강조된다.
     function refreshMgmtSortIndicator() {
-        const hasCustomSort = mgmtSortOrder !== MGMT_SORT_DEFAULT_KEY || mgmtSortDirection !== MGMT_SORT_DEFAULT_DIRECTION;
+        const hasCustomSort = mgmtSortOrder !== 'default' || mgmtSortDirection !== MGMT_SORT_OPTIONS.default.defaultDir;
         document.getElementById('mgmtSortToggle').classList.toggle('has-filter', hasCustomSort);
     }
 
     function setMgmtSortOrder(key) {
         mgmtSortOrder = key;
+        // "기본값"을 고르면 정렬 방향도 기본 방향으로 함께 되돌린다.
+        if (MGMT_SORT_OPTIONS[key]?.defaultDir) {
+            mgmtSortDirection = MGMT_SORT_OPTIONS[key].defaultDir;
+            updateMgmtSortDirectionButtons();
+        }
         renderMgmtSortOptions();
         refreshMgmtSortIndicator();
+        saveSortSettings();
         renderManagement();
     }
 
@@ -62,6 +66,7 @@
         mgmtSortDirection = dir;
         updateMgmtSortDirectionButtons();
         refreshMgmtSortIndicator();
+        saveSortSettings();
         renderManagement();
     }
 
@@ -69,7 +74,8 @@
         const wrap = document.getElementById('mgmtSortFilterWrap');
         const popover = document.getElementById('mgmtSortPopover');
         if (!wrap || !popover || !popover.classList.contains('open')) return;
-        if (!wrap.contains(e.target)) popover.classList.remove('open');
+        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
+        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
     });
 
     function changeMgmtPage(page) { mgmtCurrentPage = page; renderManagement(); }
@@ -93,7 +99,8 @@
         const wrap = document.getElementById('mgmtSearchFilterWrap');
         const popover = document.getElementById('mgmtDateFilterPopover');
         if (!wrap || !popover || !popover.classList.contains('open')) return;
-        if (!wrap.contains(e.target)) popover.classList.remove('open');
+        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
+        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
     });
 
     function clearMgmtFilter() {

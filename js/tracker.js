@@ -31,8 +31,12 @@
     function renderTodoList() {
         const listEl = document.getElementById('jobPresetList'); listEl.innerHTML = '';
         const selectedDate = document.getElementById('hiddenDateInput').value;
-        const showCompleted = document.getElementById('showCompletedToggle')?.classList.contains('active');
-        let visiblePresets = sortTodoListItems(getVisiblePresetsForDate(selectedDate, showCompleted));
+        const includeCompleted = document.getElementById('trackerIncludeCompleted')?.checked;
+        const includeSuspended = document.getElementById('trackerIncludeSuspended')?.checked;
+        let visiblePresets = sortJobsForTracker(
+            getVisiblePresetsForDate(selectedDate, includeCompleted, includeSuspended),
+            trackerSortOrder, trackerSortDirection
+        );
 
         // Completed items older than TRACKER_COMPLETED_VISIBLE_DAYS don't clutter the daily list —
         // for anything further back, use the 운영 관리 탭's 완료 목록 instead.
@@ -74,11 +78,91 @@
 
     function changeTrackerListPage(page) { trackerListPage = page; renderTodoList(); }
 
-    function toggleShowCompleted() {
-        document.getElementById('showCompletedToggle').classList.toggle('active');
+    // ---- 운영목록 필터·정렬 팝오버 (완료/중단 포함 체크박스 + 정렬 기준) ----
+    function toggleTrackerFilterMenu(e) {
+        if (e) e.stopPropagation();
+        renderTrackerSortOptions();
+        updateTrackerSortDirectionButton();
+        document.getElementById('trackerFilterPopover').classList.toggle('open');
+    }
+
+    function renderTrackerSortOptions() {
+        const wrap = document.getElementById('trackerSortOptions');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        Object.keys(TRACKER_SORT_OPTIONS).forEach(key => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sort-option-item' + (trackerSortOrder === key ? ' active' : '');
+            btn.textContent = TRACKER_SORT_OPTIONS[key].label;
+            btn.onclick = () => setTrackerSortOrder(key);
+            wrap.appendChild(btn);
+        });
+    }
+
+    function updateTrackerSortDirectionButton() {
+        const btn = document.getElementById('trackerSortDirBtn');
+        if (!btn) return;
+        btn.classList.toggle('desc', trackerSortDirection === 'desc');
+        btn.title = trackerSortDirection === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
+    }
+
+    function refreshTrackerFilterIndicator() {
+        const includeCompleted = document.getElementById('trackerIncludeCompleted')?.checked;
+        const includeSuspended = document.getElementById('trackerIncludeSuspended')?.checked;
+        const hasCustom = includeCompleted || includeSuspended || trackerSortOrder !== 'default' || trackerSortDirection !== TRACKER_SORT_OPTIONS.default.defaultDir;
+        document.getElementById('trackerFilterToggle').classList.toggle('has-filter', hasCustom);
+    }
+
+    function updateTrackerFilter() {
         trackerListPage = 1;
+        refreshTrackerFilterIndicator();
+        saveSortSettings();
         renderAll();
     }
+
+    // 저장된 표시 항목(완료/중단 포함) 체크 상태를 첫 렌더링 전에 체크박스에 복원한다.
+    function restoreTrackerFilterCheckboxes() {
+        try {
+            const f = JSON.parse(localStorage.getItem(STORAGE_KEY_SORT) || '{}').trackerFilter;
+            if (!f) return;
+            document.getElementById('trackerIncludeCompleted').checked = f.completed === true;
+            document.getElementById('trackerIncludeSuspended').checked = f.suspended === true;
+        } catch (e) { /* 저장값이 깨졌으면 기본값(둘 다 꺼짐) 유지 */ }
+    }
+
+    function setTrackerSortOrder(key) {
+        trackerSortOrder = key;
+        // "기본값"을 고르면 정렬 방향도 기본 방향으로 함께 되돌린다.
+        if (TRACKER_SORT_OPTIONS[key]?.defaultDir) {
+            trackerSortDirection = TRACKER_SORT_OPTIONS[key].defaultDir;
+            updateTrackerSortDirectionButton();
+        }
+        renderTrackerSortOptions();
+        refreshTrackerFilterIndicator();
+        saveSortSettings();
+        renderTodoList();
+    }
+
+    function toggleTrackerSortDirection() {
+        setTrackerSortDirection(trackerSortDirection === 'asc' ? 'desc' : 'asc');
+    }
+
+    function setTrackerSortDirection(dir) {
+        trackerSortDirection = dir;
+        updateTrackerSortDirectionButton();
+        refreshTrackerFilterIndicator();
+        saveSortSettings();
+        renderTodoList();
+    }
+
+    document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('trackerFilterWrap');
+        const popover = document.getElementById('trackerFilterPopover');
+        if (!wrap || !popover || !popover.classList.contains('open')) return;
+        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
+        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
+    });
 
     function roundDateToNearest(dateObj, intervalMins) { 
         if (intervalMins <= 1) return new Date(dateObj); 
