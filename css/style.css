@@ -820,23 +820,48 @@
         }
         .sort-toggle-btn:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
         .sort-toggle-btn.has-filter { color: var(--accent-main); }
-        .sort-popover { min-width: 160px; padding: var(--space-5); }
-        .sort-option-item {
-            display: block;
+        /* 정렬 · 필터 팝오버 공통 레이아웃: 섹션(제목 + 항목 목록)을 구분선으로 나누고, 항목 간격은 모두 동일하게 */
+        .sort-popover { min-width: 180px; padding: var(--space-6); }
+        /* 버튼이 카드 오른쪽 끝(+ 추가 옆)에 있으므로 팝오버는 버튼 오른쪽 끝에 맞춰 왼쪽으로 펼침 */
+        .tracker-filter-popover { min-width: 200px; left: auto; right: 0; }
+        .popover-section + .popover-section {
+            margin-top: var(--space-6);
+            padding-top: var(--space-6);
+            border-top: 1px solid var(--neutral-gray-border);
+        }
+        .popover-section-title {
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-bold);
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-4);
+        }
+        .sort-popover-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+        .sort-popover-header .popover-section-title { margin-bottom: 0; }
+
+        .sort-option-list { display: flex; flex-direction: column; gap: var(--space-1); }
+        .sort-option-item,
+        .filter-checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
             width: 100%;
-            text-align: left;
-            padding: var(--space-4) var(--space-5);
-            border: none;
-            background: transparent;
+            min-height: 32px;
+            padding: 0 var(--space-5);
             border-radius: var(--radius-sm);
             font-size: var(--fs-sm);
-            color: var(--text-muted);
             cursor: pointer;
+            transition: var(--transition);
+        }
+        .sort-option-item {
+            text-align: left;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
         }
         .sort-option-item:hover { background: var(--neutral-gray); color: var(--text-strong); }
         .sort-option-item.active { color: var(--accent-main); font-weight: var(--fw-bold); background: var(--bg-subtle); }
 
-        .sort-popover-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
         .sort-dir-icon-btn {
             width: 24px; height: 24px;
             padding: 0;
@@ -851,6 +876,19 @@
         .sort-dir-icon-btn:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
         .sort-dir-icon-btn svg { transition: transform 0.15s ease; }
         .sort-dir-icon-btn.desc svg { transform: rotate(180deg); }
+
+        /* 체크박스 행: 전역 label 스타일(대문자·굵게·하단 여백)을 초기화해 정렬 항목과 같은 높이·간격으로 맞춤 */
+        .filter-checkbox-row {
+            gap: var(--space-4);
+            margin: 0;
+            font-weight: var(--fw-medium);
+            color: var(--text-base);
+            text-transform: none;
+            letter-spacing: normal;
+        }
+        .filter-checkbox-row:hover { background: var(--neutral-gray); }
+        .filter-checkbox-row input[type="checkbox"] { width: 15px; height: 15px; margin: 0; flex-shrink: 0; cursor: pointer; accent-color: var(--accent-main); }
+
 
         /* Status badge (삭제됨) */
         .badge-deleted {
