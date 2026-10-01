@@ -327,10 +327,23 @@
         label { display: block; font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--text-muted); margin-bottom: var(--space-4); text-transform: uppercase; letter-spacing: 0.05em; }
         .form-group { margin-bottom: var(--space-9); }
         .form-group--tight { margin-bottom: var(--space-8); }
-        .backup-help { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; margin: 0 0 var(--space-5) 0; }
-        .backup-help--tight { margin: var(--space-3) 0 var(--space-5) 0; }
-        .backup-help a { color: var(--accent-main); font-weight: var(--fw-semibold); }
-        .time-input-compact { width: 130px; padding: var(--space-3) var(--space-6); }
+        /* 내보내기 · 백업 모달: 구역(제목 + 설명) → 입력 → 상태 순으로, 간격은 gap으로 통일 */
+        .backup-section { display: flex; flex-direction: column; gap: var(--space-5); }
+        .backup-section + .backup-section { margin-top: var(--space-9); padding-top: var(--space-9); border-top: 1px solid var(--neutral-gray-border); }
+        .backup-section-head { display: flex; flex-direction: column; gap: var(--space-2); }
+        .backup-section-title { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text-strong); letter-spacing: -0.01em; }
+        .backup-help { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6; margin: 0; }
+        .backup-help a, .backup-steps a { color: var(--accent-main); font-weight: var(--fw-semibold); }
+        .backup-steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--fs-xs); color: var(--text-base); line-height: 1.6; }
+        .backup-steps li::marker { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .backup-field { display: flex; flex-direction: column; gap: var(--space-3); }
+        .backup-field--inline { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-6); }
+        /* 전역 label 스타일(대문자·아래 여백)을 쓰지 않는 입력 라벨 */
+        label.backup-field-label { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-base); text-transform: none; letter-spacing: normal; white-space: nowrap; }
+        /* input[type=time]의 전역 width:100%보다 우선하도록 선택자를 구체화 */
+        input[type="time"].time-input-compact { width: 140px; flex-shrink: 0; padding: var(--space-3) var(--space-6); }
+        .backup-status-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); padding: var(--space-5) var(--space-6); border-radius: var(--radius-sm); background: var(--neutral-gray); }
+        .backup-status { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
         .checkbox-label { font-size: var(--fs-xs); margin: 0; cursor: pointer; display: flex; align-items: center; gap: var(--space-3); text-transform: none; }
 
         /* Bullet Editor (Obsidian-style, one row per bullet) */
@@ -679,10 +692,11 @@
         .job-panel-main { display: flex; align-items: flex-start; gap: var(--space-6); min-width: 0; flex: 1; }
         .job-panel-main .color-dot { margin-top: var(--space-3); }
         .job-panel-info { min-width: 0; }
-        .job-panel-info--half { max-width: 65%; }
+        /* 주간보고 운영별 상세: 이름 칸이 오른쪽 '총 시간·상태' 앞까지 남는 폭을 모두 쓰도록 (고정 비율 제한 없음) */
+        .job-panel-info--half { flex: 1; min-width: 0; }
         .job-panel-title { font-weight: var(--fw-black); font-size: var(--fs-md); color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.02em; }
         /* 주간보고 "운영별 상세" 패널 전용: 운영명이 길어도 ...으로 자르지 않고 다음 줄로 넘김 */
-        .job-panel-title--wrap { overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; }
+        .job-panel-title--wrap { overflow: visible; text-overflow: clip; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; } /* 한글은 단어 단위로 줄바꿈 */
         .job-panel-dates { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 0; }
         .job-panel-dates strong { font-weight: var(--fw-black); }
         .job-panel-dates .sep { margin: 0 var(--space-2); }
@@ -823,6 +837,32 @@
         }
         .sort-toggle-btn:hover { background: var(--neutral-gray-border); color: var(--text-strong); }
         .sort-toggle-btn.has-filter { color: var(--accent-main); }
+        /* 타이머 탭의 작은 원형 버튼 (운영 목록 정렬, 타임라인 미실행 숨기기) */
+        .sort-toggle-btn--sm { width: 24px; height: 24px; }
+        .sort-toggle-btn--sm svg { width: 12px; height: 12px; }
+        /* 켜고 끄는 아이콘 버튼 (타임라인 미실행 숨기기): 켜짐 = 테마색 채움 */
+        .icon-toggle { position: relative; }
+        .icon-toggle.active { background: var(--accent-main); border-color: var(--accent-main); color: #ffffff; }
+        .icon-toggle.active:hover { background: var(--accent-hover); color: #ffffff; }
+        /* 호버 시 바로 뜨는 말풍선 (브라우저 기본 title은 늦게 떠서 직접 표시) */
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: calc(100% + 6px); right: 0;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-sm);
+            background: var(--text-strong);
+            color: var(--bg-surface);
+            font-size: var(--fs-xs);
+            font-weight: var(--fw-semibold);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-2px);
+            transition: opacity 0.12s ease, transform 0.12s ease;
+            z-index: var(--z-modal);
+        }
+        [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transform: translateY(0); }
         /* 정렬 · 필터 팝오버 공통 레이아웃: 섹션(제목 + 항목 목록)을 구분선으로 나누고, 항목 간격은 모두 동일하게 */
         .sort-popover { min-width: 180px; padding: var(--space-6); }
         /* 버튼이 카드 오른쪽 끝(+ 추가 옆)에 있으므로 팝오버는 버튼 오른쪽 끝에 맞춰 왼쪽으로 펼침 */
