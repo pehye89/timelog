@@ -95,8 +95,19 @@
     }
 
     // 타이머 탭 운영목록의 필터·정렬 팝오버에서 고를 수 있는 정렬 옵션.
+    // 상태 정렬의 정석 순서(오름차순): 관리업무 > 진행중 > 중단 > 완료. 같은 상태끼리는 운영번호 순.
+    const STATUS_CANONICAL_ORDER = { admin: 0, active: 1, suspended: 2, completed: 3 };
+    function sortJobsByCanonicalStatus(jobs) {
+        return [...jobs].sort((a, b) => {
+            const oa = STATUS_CANONICAL_ORDER[a.status] ?? 4; const ob = STATUS_CANONICAL_ORDER[b.status] ?? 4;
+            if (oa !== ob) return oa - ob;
+            return (a.opsCode || '').localeCompare(b.opsCode || '');
+        });
+    }
+
     const TRACKER_SORT_OPTIONS = {
         default: { label: '기본값', defaultDir: 'asc', fn: (jobs) => sortTodoListItems(jobs) },
+        status: { label: '상태순', fn: (jobs) => sortJobsByCanonicalStatus(jobs) },
         opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
         name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
         recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
@@ -137,7 +148,7 @@
     // `defaultDir`가 있는 항목(기본값)은 선택 시 정렬 방향도 함께 기본값으로 되돌린다.
     const MGMT_SORT_OPTIONS = {
         default: { label: '기본값', defaultDir: 'desc', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
-        status: { label: '상태순', fn: (jobs) => sortJobsByStatusAndCode(jobs) },
+        status: { label: '상태순', fn: (jobs) => sortJobsByCanonicalStatus(jobs) },
         opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
         name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
         recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }

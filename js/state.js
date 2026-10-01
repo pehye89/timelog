@@ -93,6 +93,8 @@
             localStorage.setItem(STORAGE_KEY_SORT, JSON.stringify({
                 mgmt: { key: mgmtSortOrder, dir: mgmtSortDirection },
                 tracker: { key: trackerSortOrder, dir: trackerSortDirection },
+                // 타임라인 미실행 숨기기 (기본 켜짐)
+                timelineFilter: { hideUnexecuted: isTimelineHidingUnexecuted() },
                 // 타이머 탭 운영목록의 표시 항목(완료/중단 포함) 체크 상태 — DOM 체크박스가 원본
                 trackerFilter: {
                     completed: !!document.getElementById('trackerIncludeCompleted')?.checked,

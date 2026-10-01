@@ -11,7 +11,7 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     </style>
-    <link rel="stylesheet" href="css/style.css?v=260930.03">
+    <link rel="stylesheet" href="css/style.css?v=261001.01">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!--
@@ -71,9 +71,9 @@
         <div class="section-box section-box--timeline">
             <div class="flex-between mb-sm">
                 <h3 class="section-eyebrow">Timeline</h3>
-                <div>
-                    <button type="button" class="toggle-chip active" id="hideUnexecutedToggle" onclick="toggleHideUnexecuted()">미실행 숨기기</button>
-                </div>
+                <button type="button" class="sort-toggle-btn sort-toggle-btn--sm icon-toggle active" id="timelineHideToggle" onclick="toggleHideUnexecuted()" data-tooltip="미실행 보기" aria-label="미실행 보기" aria-pressed="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
             </div>
             <div class="timeline-scroll" onmouseleave="endPaint(true); endErase(true)">
                 <div class="timeline-container" id="ganttContainer">
@@ -89,8 +89,9 @@
                 <div class="list-header">
                     <h3>운영 목록</h3>
                     <div class="flex-row flex-gap-sm">
+                        <button class="btn-text" onclick="openModal('addJobModal')">+ 추가</button>
                         <div class="sort-toggle-wrap" id="trackerFilterWrap">
-                            <button type="button" class="sort-toggle-btn" id="trackerFilterToggle" onclick="toggleTrackerFilterMenu(event)" title="필터 · 정렬">
+                            <button type="button" class="sort-toggle-btn sort-toggle-btn--sm" id="trackerFilterToggle" onclick="toggleTrackerFilterMenu(event)" title="필터 · 정렬">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="14" y2="12"></line><line x1="4" y1="18" x2="9" y2="18"></line></svg>
                             </button>
                             <div class="date-filter-popover sort-popover tracker-filter-popover" id="trackerFilterPopover">
@@ -110,7 +111,6 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="btn-text" onclick="openModal('addJobModal')">+ 추가</button>
                     </div>
                 </div>
                 <div id="jobPresetList"></div>
@@ -271,7 +271,7 @@
 
     <div class="quick-complete-menu hidden" id="quickCompleteMenu"></div>
 
-    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 260930.03</span></footer>
+    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 261001.01</span></footer>
 </div>
 
 <!-- MODALS -->
@@ -337,39 +337,49 @@
     <div class="modal-box">
         <div class="modal-header">내보내기 · 백업</div>
 
-        <div class="form-group">
-            <label>파일로 백업</label>
+        <section class="backup-section">
+            <div class="backup-section-head">
+                <h4 class="backup-section-title">파일로 백업</h4>
+                <p class="backup-help">모든 운영과 기록을 JSON 파일 하나로 저장하거나, 저장해 둔 파일을 불러와요.</p>
+            </div>
             <div class="flex-row flex-gap-sm">
                 <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="handleImport(event)">
                 <button class="btn-ghost btn-ghost--sm" onclick="exportData()">내보내기</button>
                 <button class="btn-ghost btn-ghost--sm" onclick="triggerImport()">가져오기</button>
             </div>
-        </div>
+        </section>
 
-        <div class="form-group mt-md">
-            <label>온라인 백업 (Google Drive)</label>
-            <p class="backup-help">
-                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>에서
-                OAuth 클라이언트 ID(웹 애플리케이션)를 발급받아 아래에 입력하세요. "승인된 자바스크립트 원본"에 이 사이트 주소를
-                등록하고, 프로젝트에서 <strong>Google Drive API</strong>를 사용 설정해야 합니다. 백업 파일은 내 드라이브에
-                이 앱이 만든 파일에만 접근하는 권한(drive.file)으로 저장됩니다.
-            </p>
-            <input type="text" id="driveClientId" placeholder="OAuth 클라이언트 ID 붙여넣기" onchange="saveDriveClientId(this.value)">
+        <section class="backup-section">
+            <div class="backup-section-head">
+                <h4 class="backup-section-title">온라인 백업 · Google Drive</h4>
+                <p class="backup-help">처음 한 번만 설정하면 돼요.</p>
+            </div>
+            <ol class="backup-steps">
+                <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>에서 OAuth 클라이언트 ID(웹 애플리케이션)를 만들어요.</li>
+                <li>"승인된 자바스크립트 원본"에 이 사이트 주소를 등록해요.</li>
+                <li>같은 프로젝트에서 <strong>Google Drive API</strong>를 사용 설정해요.</li>
+            </ol>
 
-            <div class="flex-between mt-sm">
-                <span class="text-sm">자동 백업 시각</span>
+            <div class="backup-field">
+                <label for="driveClientId" class="backup-field-label">OAuth 클라이언트 ID</label>
+                <input type="text" id="driveClientId" placeholder="클라이언트 ID 붙여넣기" onchange="saveDriveClientId(this.value)">
+                <p class="backup-help">백업 파일은 이 앱이 만든 파일에만 접근하는 권한(drive.file)으로 내 드라이브에 저장돼요.</p>
+            </div>
+
+            <div class="backup-field backup-field--inline">
+                <label for="driveBackupTime" class="backup-field-label">자동 백업 시각</label>
                 <input type="time" id="driveBackupTime" class="time-input-compact" onchange="saveDriveBackupTime(this.value)">
             </div>
-            <p class="backup-help backup-help--tight">앱을 열 때 오늘 백업이 없으면 자동으로 1회 백업하고, 탭을 열어둔 채 지정 시각이 되면 다시 갱신합니다.</p>
+            <p class="backup-help">앱을 열 때 오늘 백업이 없으면 한 번 백업하고, 탭을 열어둔 채 이 시각이 되면 다시 백업해요.</p>
 
-            <div class="flex-between mt-sm">
-                <span class="text-xs text-muted" id="driveBackupStatus">아직 백업한 적 없음</span>
+            <div class="backup-status-row">
+                <span class="backup-status" id="driveBackupStatus">아직 백업한 적 없음</span>
                 <div class="flex-row flex-gap-sm">
                     <button class="btn-ghost btn-ghost--xs" onclick="restoreFromDrive()">복원</button>
                     <button class="btn-ghost btn-ghost--xs" onclick="backupToDrive()">지금 백업</button>
                 </div>
             </div>
-        </div>
+        </section>
 
         <div class="modal-actions">
             <button class="btn-ghost" onclick="closeModal('exportBackupModal')">닫기</button>
@@ -498,18 +508,18 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=260930.03"></script>
-<script src="js/state.js?v=260930.03"></script>
-<script src="js/storage.js?v=260930.03"></script>
-<script src="js/settings.js?v=260930.03"></script>
-<script src="js/backup.js?v=260930.03"></script>
-<script src="js/tracker.js?v=260930.03"></script>
-<script src="js/history.js?v=260930.03"></script>
-<script src="js/timelog.js?v=260930.03"></script>
-<script src="js/timeline.js?v=260930.03"></script>
-<script src="js/management.js?v=260930.03"></script>
-<script src="js/weekly.js?v=260930.03"></script>
-<script src="js/modals.js?v=260930.03"></script>
-<script src="js/app.js?v=260930.03"></script>
+<script src="js/utils.js?v=261001.01"></script>
+<script src="js/state.js?v=261001.01"></script>
+<script src="js/storage.js?v=261001.01"></script>
+<script src="js/settings.js?v=261001.01"></script>
+<script src="js/backup.js?v=261001.01"></script>
+<script src="js/tracker.js?v=261001.01"></script>
+<script src="js/history.js?v=261001.01"></script>
+<script src="js/timelog.js?v=261001.01"></script>
+<script src="js/timeline.js?v=261001.01"></script>
+<script src="js/management.js?v=261001.01"></script>
+<script src="js/weekly.js?v=261001.01"></script>
+<script src="js/modals.js?v=261001.01"></script>
+<script src="js/app.js?v=261001.01"></script>
 </body>
 </html>

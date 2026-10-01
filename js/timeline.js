@@ -57,7 +57,7 @@
             });
         }
 
-        const hideUnexecuted = document.getElementById('hideUnexecutedToggle')?.classList.contains('active');
+        const hideUnexecuted = isTimelineHidingUnexecuted();
         if (hideUnexecuted) {
             const isRunningToday = currentJob && startTime && dateToIso(new Date(startTime)) === selectedDate;
             displayJobs = displayJobs.filter(job =>
@@ -65,7 +65,8 @@
             );
         }
 
-        const defaultSortedJobs = sortJobsByExecution(displayJobs, history);
+        // 타임라인 행 순서는 운영 목록의 정렬 기준·방향을 그대로 따른다 (드래그로 옮기면 그날은 그 순서 우선)
+        const defaultSortedJobs = sortJobsForTracker(displayJobs, trackerSortOrder, trackerSortDirection);
 
         if (!timelineOrderManuallySet) {
             // No manual drag has happened yet (or the page/date changed since) — keep continuously
@@ -402,7 +403,31 @@
         manualAddBulletEditor.setBullets([]);
     }
 
+    // ---- 타임라인 미실행 숨기기: 체크 아이콘 하나로 켜고 끔. 호버 시 누르면 할 동작을 안내 ----
+    function isTimelineHidingUnexecuted() {
+        const btn = document.getElementById('timelineHideToggle');
+        return btn ? btn.classList.contains('active') : true;
+    }
+
+    function applyTimelineHideState(hide) {
+        const btn = document.getElementById('timelineHideToggle');
+        btn.classList.toggle('active', hide);
+        btn.setAttribute('aria-pressed', String(hide));
+        const label = hide ? '미실행 보기' : '미실행 숨기기';
+        btn.dataset.tooltip = label;
+        btn.setAttribute('aria-label', label);
+    }
+
     function toggleHideUnexecuted() {
-        document.getElementById('hideUnexecutedToggle').classList.toggle('active');
+        applyTimelineHideState(!isTimelineHidingUnexecuted());
+        saveSortSettings();
         renderHistory();
+    }
+
+    // 저장된 상태를 첫 렌더링 전에 복원 (저장값이 없으면 기본 켜짐)
+    function restoreTimelineFilterCheckbox() {
+        try {
+            const f = JSON.parse(localStorage.getItem(STORAGE_KEY_SORT) || '{}').timelineFilter;
+            if (f && typeof f.hideUnexecuted === 'boolean') applyTimelineHideState(f.hideUnexecuted);
+        } catch (e) { /* 기본값 유지 */ }
     }
