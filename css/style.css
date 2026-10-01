@@ -282,6 +282,24 @@
         .date-nav-group { margin: var(--space-2) var(--space-11); display: flex; align-items: center; }
         .date-display { margin: 0 var(--space-5); text-align: center; font-size: var(--fs-2xl); font-weight: var(--fw-black); color: var(--text-strong); letter-spacing: -0.04em; cursor: pointer; user-select: none; transition: opacity 0.2s; }
         .date-display:hover { opacity: 0.7; }
+
+        /* ---- 커스텀 캘린더 팝오버 ---- */
+        .cal-popover { position: absolute; z-index: calc(var(--z-modal) + 10); width: 252px; padding: var(--space-6); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); box-shadow: var(--shadow-float); }
+        .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
+        .cal-title { font-size: var(--fs-md); font-weight: var(--fw-black); color: var(--text-strong); letter-spacing: -0.02em; }
+        .cal-nav { width: 26px; height: 26px; border-radius: 50%; border: none; background: var(--neutral-gray); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); }
+        .cal-nav:hover { color: var(--text-strong); transform: scale(1.08); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cal-weekdays { margin-bottom: var(--space-2); }
+        .cal-weekdays span { text-align: center; font-size: var(--fs-xs); color: var(--text-muted); padding: var(--space-2) 0; }
+        .cal-weekdays span.is-weekend { opacity: 0.45; }
+        .cal-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); border-radius: 50%; border: none; background: none; color: var(--text-strong); font-family: inherit; padding: 0; }
+        button.cal-day { cursor: pointer; transition: var(--transition); }
+        button.cal-day:hover { background: var(--accent-light); }
+        .cal-day.is-weekend { color: var(--text-muted); opacity: 0.4; cursor: default; }
+        .cal-day.is-today { box-shadow: inset 0 0 0 1.5px var(--accent-main); font-weight: var(--fw-black); }
+        .cal-day.is-selected { background: var(--accent-main); color: var(--bg-surface); font-weight: var(--fw-black); box-shadow: none; }
+        button.cal-day.is-selected:hover { background: var(--accent-main); opacity: 0.9; }
         /* 달력 기준점: 날짜 입력칸을 숨기되(display:none이면 달력이 엉뚱한 위치에 뜸) 날짜 글자 바로 아래에 두어 달력이 그 밑에 열리게 함 */
         .date-nav-group { position: relative; }
         input.date-picker-anchor[type="date"] { position: absolute; left: var(--space-5); bottom: 0; width: 1px; height: 1px; min-width: 0; padding: 0; margin: 0; border: 0; opacity: 0; pointer-events: none; }
@@ -688,6 +706,7 @@
             transition: var(--transition);
         }
         .job-panel.is-done { opacity: 0.65; }
+        .summary-row.is-done { opacity: 0.65; }
         .job-panel-head { align-items: center; gap: var(--space-7); }
         .job-panel-main { display: flex; align-items: flex-start; gap: var(--space-6); min-width: 0; flex: 1; }
         .job-panel-main .color-dot { margin-top: var(--space-3); }
