@@ -20,7 +20,18 @@
         renderWeekly();
     }
 
-    function renderWeeklySummary(weekHistory, referenceDateStr) {
+    // 주간보고 정렬: 관리업무 > 완료(해당 주 이전) > 완료(해당 주) > 진행중, 각 그룹 안에서는 운영번호 오름차순
+    function sortJobsForWeekly(jobs, weekStartStr) {
+        const rank = j => {
+            if (j.status === 'admin') return 0;
+            if (j.status === 'completed') return (j.endDate && j.endDate < weekStartStr) ? 1 : 2;
+            return 3;
+        };
+        return [...jobs].sort((a, b) =>
+            rank(a) - rank(b) || (a.opsCode || '').localeCompare(b.opsCode || '', undefined, { numeric: true }));
+    }
+
+    function renderWeeklySummary(weekHistory, referenceDateStr, weekStartStr) {
         const container = document.getElementById('weeklySummaryContainer');
         const emptyMsg = document.getElementById('weeklySummaryEmptyMsg');
         if (!container) return;
@@ -32,7 +43,7 @@
         weekHistory.forEach(h => {
             if (!totalsByJob[h.jobId]) {
                 const asOfStatus = getStatusAsOfDate(presetsMap[h.jobId] || {}, referenceDateStr);
-                totalsByJob[h.jobId] = { ms: 0, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: asOfStatus };
+                totalsByJob[h.jobId] = { ms: 0, endDate: (presetsMap[h.jobId] || {}).endDate, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: asOfStatus, endedBeforeWeek: !!(presetsMap[h.jobId] && presetsMap[h.jobId].endDate && presetsMap[h.jobId].endDate < weekStartStr) };
             }
             totalsByJob[h.jobId].ms += h.durationMs || 0;
         });
@@ -46,7 +57,7 @@
         }
         if (emptyMsg) emptyMsg.style.display = 'none';
 
-        const sortedIds = sortJobsByStatusAndCode(jobIds.map(id => ({ id, ...totalsByJob[id] }))).map(item => item.id);
+        const sortedIds = sortJobsForWeekly(jobIds.map(id => ({ id, ...totalsByJob[id] })), weekStartStr).map(item => item.id);
         const grandTotalMs = sortedIds.reduce((sum, id) => sum + totalsByJob[id].ms, 0);
 
         let html = `
@@ -59,7 +70,7 @@
         html += sortedIds.map(id => {
             const item = totalsByJob[id];
             return `
-                <div class="flex-between summary-row">
+                <div class="flex-between summary-row ${(item.endedBeforeWeek || item.status === 'admin') ? 'is-done' : ''}">
                     <div class="summary-row-info">
                         <div class="summary-row-title-wrap">
                             ${statusPillHtml(item.status)}
@@ -87,15 +98,16 @@
         document.getElementById('todayBtnWeekly').classList.toggle('is-today', today >= mon && today <= sun);
 
         const referenceDateStr = dateToIso(sun);
+        const weekStartStr = dateToIso(mon);
         const presets = getPresets().filter(p => p.status !== 'deleted');
         const history = getHistory();
         const weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
 
-        renderWeeklySummary(weekHistory, referenceDateStr);
+        renderWeeklySummary(weekHistory, referenceDateStr, weekStartStr);
 
         const c = document.getElementById('weeklyContainer'); c.innerHTML = '';
 
-        const sortedPresets = sortJobsByStatusAndCode(presets.map(p => ({ ...p, status: getStatusAsOfDate(p, referenceDateStr) })));
+        const sortedPresets = sortJobsForWeekly(presets.map(p => ({ ...p, status: getStatusAsOfDate(p, referenceDateStr) })), weekStartStr);
 
         if(sortedPresets.length === 0) {
             return c.innerHTML = '<div class="empty-state">해당하는 운영이 없습니다.</div>';
@@ -136,6 +148,7 @@
 
             const isDone = job.status === 'completed';
             const isAdmin = job.status === 'admin';
+            const endedBeforeWeek = !!(job.endDate && job.endDate < weekStartStr);
 
             const datesRowHtml = isAdmin ? '' : `
                 <div class="job-panel-dates">
@@ -145,7 +158,7 @@
                 </div>`;
 
             c.innerHTML += `
-                <div class="job-panel">
+                <div class="job-panel ${(endedBeforeWeek || isAdmin) ? 'is-done' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
                             <button class="btn-text icon-btn-circle" onclick="toggleWeeklyExpand(${job.id})">

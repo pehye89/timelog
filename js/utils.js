@@ -166,6 +166,8 @@
     // period should show what the status was AS OF that period, not today. 관리업무 has no dates and
     // is always shown as such. Otherwise: if the job's completion date is on or before the reference
     // date, it had already been marked 완료 by then; if not (or no end date yet), it was still 진행중.
+    // 주간보고용: referenceDateStr = 해당 주의 일요일. 그 주까지 완료된 운영은 '완료'로 표시한다.
+    // (흐리게 처리할지는 weekly.js에서 '주 시작 이전 완료'인지로 따로 판단)
     function getStatusAsOfDate(job, referenceDateStr) {
         if (job.status === 'admin') return 'admin';
         if (job.endDate && job.endDate <= referenceDateStr) return 'completed';

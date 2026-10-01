@@ -65,8 +65,27 @@
             );
         }
 
-        // 타임라인 행 순서는 운영 목록의 정렬 기준·방향을 그대로 따른다 (드래그로 옮기면 그날은 그 순서 우선)
-        const defaultSortedJobs = sortJobsForTracker(displayJobs, trackerSortOrder, trackerSortDirection);
+        // 타임라인 행 순서는 운영 목록 정렬과 무관하게 항상 '실행 순'(그날 가장 먼저 시작한 기록 순).
+        // 아직 실행하지 않은 운영은 그 뒤에 운영 목록 정렬 순서로 둔다. 드래그로 옮기면 그날은 그 순서가 우선.
+        const firstStartMins = {};
+        history.forEach(h => {
+            const m = timeToMins(h.startTime);
+            if (firstStartMins[h.jobId] === undefined || m < firstStartMins[h.jobId]) firstStartMins[h.jobId] = m;
+        });
+        if (currentJob && startTime && dateToIso(new Date(startTime)) === selectedDate) {
+            const m = timeToMins(dateToHHMM(new Date(startTime)));
+            if (firstStartMins[currentJob.id] === undefined || m < firstStartMins[currentJob.id]) firstStartMins[currentJob.id] = m;
+        }
+        const defaultSortedJobs = sortJobsForTracker(displayJobs, trackerSortOrder, trackerSortDirection)
+            .map((job, i) => ({ job, i }))
+            .sort((a, b) => {
+                const fa = firstStartMins[a.job.id], fb = firstStartMins[b.job.id];
+                if (fa !== undefined && fb !== undefined) return fa - fb || a.i - b.i;
+                if (fa !== undefined) return -1;
+                if (fb !== undefined) return 1;
+                return a.i - b.i;
+            })
+            .map(x => x.job);
 
         if (!timelineOrderManuallySet) {
             // No manual drag has happened yet (or the page/date changed since) — keep continuously

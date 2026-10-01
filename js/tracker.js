@@ -141,7 +141,6 @@
         renderTrackerSortOptions();
         refreshTrackerFilterIndicator();
         saveSortSettings();
-        timelineOrderManuallySet = false; // 정렬을 바꾸면 타임라인도 드래그 순서 대신 새 정렬을 따른다
         renderTodoList();
         renderHistory();
     }
@@ -155,7 +154,6 @@
         updateTrackerSortDirectionButton();
         refreshTrackerFilterIndicator();
         saveSortSettings();
-        timelineOrderManuallySet = false; // 정렬을 바꾸면 타임라인도 드래그 순서 대신 새 정렬을 따른다
         renderTodoList();
         renderHistory();
     }
