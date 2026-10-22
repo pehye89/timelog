@@ -36,7 +36,7 @@
             const totalMs = group.logs.reduce((sum, l) => sum + (l.durationMs || 0), 0);
             const job = presetsMap[group.jobId];
             const datesRowHtml = (job && job.status !== 'admin')
-                ? `<div class="job-panel-dates"><strong>시작</strong> ${job.startDate || '-'}<span class="sep">·</span><strong>완료</strong> ${job.endDate || '-'}</div>`
+                ? `<div class="job-panel-dates">${formatPeriod(getEffectiveStartDate(job), job.endDate)}</div>`
                 : '';
 
             let treeHtml = '<div class="log-tree">';

@@ -264,19 +264,12 @@
                 }
             }
 
-            let datesRowHtml;
-            if (isDeleted) {
-                datesRowHtml = `<div class="job-panel-dates"><span class="badge-deleted">삭제됨 · ${daysRemaining(job.deletedAt)}일 후 완전 삭제</span></div>`;
-            } else if (isAdmin) {
-                datesRowHtml = '';
-            } else {
-                datesRowHtml = `
-                    <div class="job-panel-dates">
-                        <strong>시작</strong> ${job.startDate || '-'}
-                        <span class="sep">·</span>
-                        <strong>완료</strong> ${job.endDate || '-'}
-                    </div>`;
-            }
+            const allTimeMs = allHistory.filter(h => h.jobId === job.id).reduce((acc, h) => acc + (h.durationMs || 0), 0);
+            const isCompact = job.status === 'completed' || job.status === 'suspended' || isDeleted;
+
+            const deletedBadge = isDeleted ? `<div class="job-panel-dates"><span class="badge-deleted">삭제됨 · ${daysRemaining(job.deletedAt)}일 후 완전 삭제</span></div>` : '';
+            // 시작 · 완료 · 누적 소요를 작은 회색 한 줄로 합침 (관리업무·휴지통은 표시 안 함)
+            const metaLineHtml = (isAdmin || isDeleted) ? '' : `<div class="job-panel-dates">${formatPeriod(getEffectiveStartDate(job, allHistory), job.endDate)}<span class="sep">·</span>누적 ${formatDuration(allTimeMs)}</div>`;
 
             let actionsHtml;
             if (isDeleted) {
@@ -293,21 +286,17 @@
             }
 
             c.innerHTML += `
-                <div class="job-panel ${isDone ? 'is-done' : ''} ${isDeleted ? 'is-deleted' : ''}">
+                <div class="job-panel ${isCompact ? 'is-compact' : ''} ${isDone ? 'is-done' : ''} ${isDeleted ? 'is-deleted' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
                             <button class="btn-text icon-btn-circle" onclick="toggleHistoryExpand(${job.id})">
                                 ${expanded ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'}
                             </button>
-                            
                             <span class="color-dot" style="--job-color: ${jobColor};"></span>
-
                             <div class="job-panel-info">
                                 <div class="job-panel-title">${escapeHtml(job.opsName)}</div>
-                                <div class="truncate-line">
-                                    ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
-                                </div>
-                                ${datesRowHtml}
+                                <div class="truncate-line">${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}</div>
+                                ${deletedBadge}${metaLineHtml}
                             </div>
                         </div>
                         <div class="job-panel-actions">
@@ -375,7 +364,8 @@
         document.getElementById('editOpsName').value = job.opsName || ''; 
         document.getElementById('editTaskCode').value = job.taskCode || '';
         document.getElementById('editTaskName').value = job.taskName || ''; 
-        document.getElementById('editJobStartDate').value = job.startDate || '';
+        document.getElementById('editJobStartDate').value = getEffectiveStartDate(job) || '';
+        document.getElementById('editJobStartDate').dataset.shown = getEffectiveStartDate(job) || '';
         document.getElementById('editJobEndDate').value = job.endDate || '';
         document.getElementById('editJobStatus').value = ['admin', 'completed', 'suspended'].includes(job.status) ? job.status : 'active';
         toggleEditJobDateFields();
@@ -400,7 +390,12 @@
             if (newStatus === 'admin') {
                 presets[idx].startDate = ''; presets[idx].endDate = '';
             } else {
-                presets[idx].startDate = document.getElementById('editJobStartDate').value; presets[idx].endDate = document.getElementById('editJobEndDate').value;
+                const startEl = document.getElementById('editJobStartDate');
+                if (startEl.value !== (startEl.dataset.shown || '')) {
+                    // 직접 바꾼 경우에만 수동 지정으로 고정 (비우면 다시 첫 기록일 자동)
+                    presets[idx].startDate = startEl.value; presets[idx].startDateManual = !!startEl.value;
+                }
+                presets[idx].endDate = document.getElementById('editJobEndDate').value;
                 if (newStatus === 'completed' && !presets[idx].endDate) presets[idx].endDate = getTodayIso();
             }
             presets[idx].color = tempSelectedColor;

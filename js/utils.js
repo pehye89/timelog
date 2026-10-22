@@ -18,6 +18,21 @@
 
     function truncate(str, max) { if(!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
     
+    // 운영 시작일: 사용자가 직접 수정(startDateManual)하기 전까지는 '첫 기록이 남겨진 날'을 쓴다.
+    // 기록이 아직 없으면 저장된 시작일(생성 시 선택한 날짜)을 그대로 보여준다.
+    function getEffectiveStartDate(job, history) {
+        if (!job || job.status === 'admin') return '';
+        if (job.startDateManual && job.startDate) return job.startDate;
+        let first = '';
+        (history || getHistory()).forEach(h => { if (h.jobId === job.id && h.date && (!first || h.date < first)) first = h.date; });
+        return first || job.startDate || '';
+    }
+
+    // 기간 표기: "2026-10-22 ~ 2026-10-30" (완료 전에는 "2026-10-22 ~")
+    function formatPeriod(start, end) {
+        return `${start || '-'} ~${end ? ' ' + end : ''}`;
+    }
+
     function formatDuration(ms) {
         const totalMins = Math.round(ms / 60000);
         return `${totalMins}분`;

@@ -150,15 +150,13 @@
             const isAdmin = job.status === 'admin';
             const endedBeforeWeek = !!(job.endDate && job.endDate < weekStartStr);
 
-            const datesRowHtml = isAdmin ? '' : `
-                <div class="job-panel-dates">
-                    <strong>시작</strong> ${job.startDate || '-'}
-                    <span class="sep">·</span>
-                    <strong>완료</strong> ${job.endDate || '-'}
-                </div>`;
+            const allTimeMs = history.filter(h => h.jobId === job.id).reduce((acc, h) => acc + (h.durationMs || 0), 0);
+            const isCompact = endedBeforeWeek || isAdmin;
+
+            const metaLineHtml = isAdmin ? '' : `<div class="job-panel-dates">${formatPeriod(getEffectiveStartDate(job, history), job.endDate)}<span class="sep">·</span>누적 ${formatDuration(allTimeMs)}</div>`;
 
             c.innerHTML += `
-                <div class="job-panel ${(endedBeforeWeek || isAdmin) ? 'is-done' : ''}">
+                <div class="job-panel ${isCompact ? 'is-compact is-done' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
                             <button class="btn-text icon-btn-circle" onclick="toggleWeeklyExpand(${job.id})">
@@ -167,16 +165,12 @@
 
                             <div class="job-panel-info job-panel-info--half">
                                 <div class="job-panel-title job-panel-title--wrap">${escapeHtml(job.opsName)}</div>
-                                <div class="truncate-line">
-                                    ${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}
-                                </div>
-                                ${datesRowHtml}
+                                <div class="truncate-line">${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}</div>
+                                ${metaLineHtml}
                             </div>
                         </div>
                         <div class="job-panel-actions">
-                            <span class="job-panel-total">
-                                총 ${formatDuration(totalMs)}
-                            </span>
+                            <span class="job-panel-total" title="이번 주 소요 시간">총 ${formatDuration(totalMs)}</span>
                             ${isAdmin ? '' : `<span class="status-toggle-btn status-toggle-btn--readonly ${isDone ? 'completed' : 'active'}">${isDone ? '완료' : '진행중'}</span>`}
                         </div>
                     </div>
