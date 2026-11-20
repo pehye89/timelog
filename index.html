@@ -11,7 +11,7 @@
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     </style>
-    <link rel="stylesheet" href="css/style.css?v=261022.01">
+    <link rel="stylesheet" href="css/style.css?v=261116.01">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!--
@@ -228,7 +228,10 @@
                     <h3>시간로그</h3>
                     <div class="timelog-table-sub" id="timelogTabSub"></div>
                 </div>
-                <button class="btn-ghost btn-ghost--sm" id="timelogTabCopyAllBtn" onclick="copyTimeLogTable(timelogTabDate)">표 전체 복사</button>
+                <div class="list-header-actions">
+                    <button class="btn-ghost btn-ghost--sm" id="timelogTabCopyAllBtn" onclick="copyTimeLogTable(timelogTabDate)">표 전체 복사</button>
+                    <button class="btn-ghost btn-ghost--sm" id="timelogErpBtn" onclick="openErpFillModal(timelogTabDate)">ERP 자동입력</button>
+                </div>
             </div>
             <div class="timelog-table-scroll" id="timelogTabContainer"></div>
         </div>
@@ -271,7 +274,7 @@
 
     <div class="quick-complete-menu hidden" id="quickCompleteMenu"></div>
 
-    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 261022.01</span></footer>
+    <footer class="footer">Made by Eunhye. <span class="app-version-tag">ver 261116.01</span></footer>
 </div>
 
 <!-- MODALS -->
@@ -396,6 +399,7 @@
             <div class="form-group"><label>운영명</label><input type="text" id="newOpsName" placeholder="예: 유지보수"></div>
             <div class="form-group"><label>작업 코드</label><input type="text" id="newTaskCode" placeholder="예: TK-1234"></div>
             <div class="form-group"><label>작업명</label><input type="text" id="newTaskName" placeholder="예: 메인 화면 UI 수정"></div>
+            <div class="form-group"><label>ERP 업무</label><input type="text" id="newErpBizz" placeholder="비우면 운영"></div>
         </div>
         <div class="form-group">
             <label class="checkbox-label"><input type="checkbox" id="newIsAdmin"> 관리업무로 등록 (시작일/완료일 없이 항상 진행, 예: 회의)</label>
@@ -417,6 +421,7 @@
             <div class="form-group"><label>운영명</label><input type="text" id="editOpsName"></div>
             <div class="form-group"><label>작업 코드</label><input type="text" id="editTaskCode"></div>
             <div class="form-group"><label>작업명</label><input type="text" id="editTaskName"></div>
+            <div class="form-group"><label>ERP 업무</label><input type="text" id="editErpBizz" placeholder="비우면 운영"></div>
         </div>
         <div class="form-group">
             <label>진행상태</label>
@@ -454,6 +459,46 @@
 </div>
 
 <!-- Manual Add Log Modal -->
+<!-- ERP(ECOUNT) 시간 로그 자동입력 -->
+<div class="modal-bg" id="erpFillModal" onclick="if(event.target===this) closeModal('erpFillModal')">
+    <div class="modal-box modal-box--wide">
+        <div class="modal-header">ERP 자동입력</div>
+        <div class="modal-sub">ERP 「시간 로그입력」 표를 대신 채워 줘요. 저장(F8)은 직접 눌러 주세요.</div>
+
+        <div class="erp-section">
+            <div class="erp-section-title">① 처음 한 번만: 즐겨찾기 만들기</div>
+            <div class="erp-section-desc">아래 「TimeLog→ERP」 버튼을 브라우저 즐겨찾기 막대로 끌어다 놓으세요. 막대가 안 보이면 Ctrl+Shift+B를 누르세요.</div>
+            <div class="erp-bm-row">
+                <a id="erpBookmarkLink" class="erp-bm-link" draggable="true" href="#" onclick="event.preventDefault(); showToast('누르지 말고 즐겨찾기 막대로 끌어다 놓으세요');" title="즐겨찾기 막대로 끌어다 놓으세요">TimeLog→ERP</a>
+                <button class="btn-ghost btn-ghost--sm" onclick="copyErpBookmarklet()">끌어다 놓기가 안 되면 주소 복사</button>
+            </div>
+        </div>
+
+        <div class="erp-section">
+            <div class="erp-section-title">② 이 날짜 기록 복사</div>
+            <div class="erp-section-desc" id="erpFillDate"></div>
+            <div class="erp-warn hidden" id="erpFillWarn"></div>
+            <div class="erp-list" id="erpFillList"></div>
+            <button class="btn-solid btn-solid--sm" id="erpCopyBtn" onclick="copyErpPayload()">이 날짜 복사</button>
+        </div>
+
+        <div class="erp-section erp-section--last">
+            <div class="erp-section-title">③ ERP에서 채우기</div>
+            <ol class="erp-steps">
+                <li>ERP 「시간 로그입력」 창을 열어요.</li>
+                <li>즐겨찾기 막대의 「TimeLog→ERP」를 눌러요. 클립보드 허용 창이 뜨면 「허용」을 눌러 주세요.</li>
+                <li>오른쪽 아래 안내창에서 「채우기 시작」을 누르면 비어 있는 첫 줄부터 채워요.</li>
+                <li>내용을 확인하고 「저장(F8)」을 눌러요.</li>
+            </ol>
+            <div class="erp-section-desc">작업·거래는 ERP 글 번호로 찾고, 못 찾으면 그 칸에서 멈춰 직접 고를 수 있게 기다려요. 업무는 기본이 「운영」이고 운영 수정 창의 「ERP 업무」에서 운영별로 바꿀 수 있어요. 카테고리는 비워 둬요.</div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-ghost" onclick="closeModal('erpFillModal')">닫기</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-bg" id="timeLogTableModal" onclick="if(event.target===this) closeModal('timeLogTableModal')">
     <div class="modal-box modal-box--wide">
         <div class="timelog-table-head">
@@ -508,19 +553,20 @@
     </div>
 </div>
 
-<script src="js/utils.js?v=261022.01"></script>
-<script src="js/state.js?v=261022.01"></script>
-<script src="js/storage.js?v=261022.01"></script>
-<script src="js/settings.js?v=261022.01"></script>
-<script src="js/backup.js?v=261022.01"></script>
-<script src="js/tracker.js?v=261022.01"></script>
-<script src="js/history.js?v=261022.01"></script>
-<script src="js/datepicker.js?v=261022.01"></script>
-    <script src="js/timelog.js?v=261022.01"></script>
-<script src="js/timeline.js?v=261022.01"></script>
-<script src="js/management.js?v=261022.01"></script>
-<script src="js/weekly.js?v=261022.01"></script>
-<script src="js/modals.js?v=261022.01"></script>
-<script src="js/app.js?v=261022.01"></script>
+<script src="js/utils.js?v=261116.01"></script>
+<script src="js/state.js?v=261116.01"></script>
+<script src="js/storage.js?v=261116.01"></script>
+<script src="js/settings.js?v=261116.01"></script>
+<script src="js/backup.js?v=261116.01"></script>
+<script src="js/tracker.js?v=261116.01"></script>
+<script src="js/history.js?v=261116.01"></script>
+<script src="js/datepicker.js?v=261116.01"></script>
+    <script src="js/timelog.js?v=261116.01"></script>
+    <script src="js/erpfill.js?v=261116.01"></script>
+<script src="js/timeline.js?v=261116.01"></script>
+<script src="js/management.js?v=261116.01"></script>
+<script src="js/weekly.js?v=261116.01"></script>
+<script src="js/modals.js?v=261116.01"></script>
+<script src="js/app.js?v=261116.01"></script>
 </body>
 </html>
