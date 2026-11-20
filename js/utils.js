@@ -1,7 +1,15 @@
     function getTodayIso() { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; }
     function dateToIso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
     function dateToHHMM(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
-    function escapeHtml(str) { return str ? String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ''; }
+    // 'YYYY-MM-DD'를 그 지역의 자정으로 읽는다 (new Date('YYYY-MM-DD')는 UTC 자정이라 요일·날짜가 어긋날 수 있음)
+    function isoToDate(iso) { return new Date(`${iso}T00:00:00`); }
+    // 주말이면 direction(+1/-1) 방향으로 평일까지 옮긴다
+    function skipWeekend(d, direction) {
+        while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + direction);
+        return d;
+    }
+    // 속성값(title="…") 안에도 쓰이므로 큰따옴표까지 이스케이프한다
+    function escapeHtml(str) { return str ? String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : ''; }
 
     // Brief, non-blocking toast notification that fades in and auto-dismisses after ~1.5s.
     function showToast(message) {
@@ -51,41 +59,14 @@
 
     function getVisiblePresetsForDate(selectedDate, includeAllCompleted, includeSuspended) {
         const sel = selectedDate || document.getElementById('hiddenDateInput').value || getTodayIso();
-        // "최근 30일" is relative to today's real date, not whichever day is being viewed.
-        const thirtyDaysAgoDate = new Date(); thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
-        const thirtyDaysAgo = dateToIso(thirtyDaysAgoDate);
+        // 완료 포함이면 오늘 기준 최근 N일 안에 완료된 것, 아니면 보고 있는 날짜 이후에 완료된 것만
+        const recent = new Date(); recent.setDate(recent.getDate() - TRACKER_COMPLETED_VISIBLE_DAYS);
+        const completedFrom = includeAllCompleted ? dateToIso(recent) : sel;
         return getPresets().filter(p => {
-            if (p.status === 'active') return true;
+            if (p.status === 'active' || p.status === 'admin') return true;
             if (p.status === 'suspended') return !!includeSuspended;
-            if (p.status === 'admin') return true;
-            if (p.status === 'completed') {
-                if (includeAllCompleted) {
-                    if (!p.endDate) return true;
-                    return p.endDate >= thirtyDaysAgo;
-                }
-                if (!p.endDate) return true;
-                return p.endDate >= sel;
-            }
+            if (p.status === 'completed') return !p.endDate || p.endDate >= completedFrom;
             return false;
-        });
-    }
-
-    // Orders jobs by whether/when they were executed (logged) on the given day — jobs with an
-    // earlier first log entry today come first, jobs with no entry today sort last — rather than by
-    // status (완료 여부). Used for both the 운영목록 list and the timeline grid rows so a job that's
-    // actively being worked on today is always prioritized regardless of its 진행중/완료 status.
-    function sortJobsByExecution(jobs, historyForDay) {
-        const getFirstLogTime = (jobId) => {
-            const logs = (historyForDay || []).filter(h => h.jobId === jobId);
-            if (!logs.length) return '99:99';
-            return logs.map(l => l.startTime).sort()[0];
-        };
-        return [...jobs].sort((a, b) => {
-            const tA = getFirstLogTime(a.id); const tB = getFirstLogTime(b.id);
-            if (tA !== tB) return tA.localeCompare(tB);
-            if ((a.opsCode || '') !== (b.opsCode || '')) return (a.opsCode || '').localeCompare(b.opsCode || '');
-            if ((a.taskCode || '') !== (b.taskCode || '')) return (a.taskCode || '').localeCompare(b.taskCode || '');
-            return (a.opsName || '').localeCompare(b.opsName || '');
         });
     }
 
@@ -120,69 +101,101 @@
         });
     }
 
-    const TRACKER_SORT_OPTIONS = {
-        default: { label: '기본값', defaultDir: 'asc', fn: (jobs) => sortTodoListItems(jobs) },
-        status: { label: '상태순', fn: (jobs) => sortJobsByCanonicalStatus(jobs) },
-        opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
-        name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
+    // 타이머 탭 운영목록과 운영 관리 탭이 함께 쓰는 정렬 옵션. 「기본값」만 탭마다 다르다.
+    // defaultDir이 있는 항목(기본값)은 고르면 정렬 방향도 기본 방향으로 되돌린다.
+    const byText = (key) => (jobs) => [...jobs].sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
+    const COMMON_SORT_OPTIONS = {
+        status: { label: '상태순', fn: sortJobsByCanonicalStatus },
+        opsCode: { label: '운영번호순', fn: byText('opsCode') },
+        name: { label: '이름순', fn: byText('opsName') },
         recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
     };
-    function sortJobsForTracker(jobs, sortKey, direction) {
-        const opt = TRACKER_SORT_OPTIONS[sortKey] || TRACKER_SORT_OPTIONS.default;
-        const sorted = opt.fn(jobs);
+    const TRACKER_SORT_OPTIONS = { default: { label: '기본값', defaultDir: 'asc', fn: sortTodoListItems }, ...COMMON_SORT_OPTIONS };
+    const MGMT_SORT_OPTIONS = { default: { label: '기본값', defaultDir: 'desc', fn: byText('opsCode') }, ...COMMON_SORT_OPTIONS };
+
+    function sortJobsWith(options, jobs, sortKey, direction) {
+        const sorted = (options[sortKey] || options.default).fn(jobs);
         return direction === 'desc' ? sorted.reverse() : sorted;
     }
+    function sortJobsForTracker(jobs, sortKey, direction) { return sortJobsWith(TRACKER_SORT_OPTIONS, jobs, sortKey, direction); }
+    function sortJobsForManagement(jobs, sortKey, direction) { return sortJobsWith(MGMT_SORT_OPTIONS, jobs, sortKey, direction); }
 
-    // Returns true if the job's opsCode/opsName/taskCode/taskName contains the search term (case-insensitive).
+    // 운영번호·운영명·작업번호·작업명 중 하나라도 검색어를 포함하면 true (대소문자 무시)
     function matchesSearch(job, search) {
-        if (!search) return true;
-        const q = search.trim().toLowerCase();
+        const q = (search || '').trim().toLowerCase();
         if (!q) return true;
-        const haystack = [job.opsCode, job.opsName, job.taskCode, job.taskName].filter(Boolean).join(' ').toLowerCase();
-        return haystack.includes(q);
+        return [job.opsCode, job.opsName, job.taskCode, job.taskName].filter(Boolean).join(' ').toLowerCase().includes(q);
     }
 
-    // Returns true if dateStr (YYYY-MM-DD) falls within [from, to] (inclusive). Empty bounds are unbounded.
+    // dateStr(YYYY-MM-DD)이 [from, to] 안에 있으면 true. 비어 있는 쪽은 제한 없음
     function inDateRange(dateStr, from, to) {
-        if (from && dateStr < from) return false;
-        if (to && dateStr > to) return false;
-        return true;
+        return !(from && dateStr < from) && !(to && dateStr > to);
     }
 
-    // Shared sort order used across all tabs: 관리업무 > 완료 > 중단 > 진행중, then by 운영번호(opsCode).
-    const STATUS_SORT_ORDER = { admin: 0, completed: 1, suspended: 2, active: 3 };
-    function sortJobsByStatusAndCode(jobs) {
-        return [...jobs].sort((a, b) => {
-            const oa = STATUS_SORT_ORDER[a.status] ?? 4; const ob = STATUS_SORT_ORDER[b.status] ?? 4;
-            if (oa !== ob) return oa - ob;
-            return (a.opsCode || '').localeCompare(b.opsCode || '');
+    // 정렬 팝오버 공통: 옵션 버튼 목록 / 오름·내림차순 버튼 표시
+    function renderSortOptionButtons(wrapId, options, currentKey, onPick) {
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        Object.keys(options).forEach(key => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sort-option-item' + (currentKey === key ? ' active' : '');
+            btn.textContent = options[key].label;
+            btn.onclick = () => onPick(key);
+            wrap.appendChild(btn);
+        });
+    }
+    function updateSortDirButton(btnId, direction) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.classList.toggle('desc', direction === 'desc');
+        btn.title = direction === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
+    }
+
+    // 팝오버 바깥을 누르면 닫는다. composedPath()는 클릭한 순간의 경로라,
+    // 클릭 직후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
+    function closeOnOutsideClick(wrapId, popoverId) {
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById(wrapId);
+            const popover = document.getElementById(popoverId);
+            if (!wrap || !popover || !popover.classList.contains('open')) return;
+            if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
         });
     }
 
-    // Manual sort-order options for the 운영 관리 tab's sort-icon picker.
-    // `defaultDir`가 있는 항목(기본값)은 선택 시 정렬 방향도 함께 기본값으로 되돌린다.
-    const MGMT_SORT_OPTIONS = {
-        default: { label: '기본값', defaultDir: 'desc', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
-        status: { label: '상태순', fn: (jobs) => sortJobsByCanonicalStatus(jobs) },
-        opsCode: { label: '운영번호순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsCode || '').localeCompare(b.opsCode || '')) },
-        name: { label: '이름순', fn: (jobs) => [...jobs].sort((a, b) => (a.opsName || '').localeCompare(b.opsName || '')) },
-        recent: { label: '최근 등록순', fn: (jobs) => [...jobs].sort((a, b) => (b.id || 0) - (a.id || 0)) }
-    };
-    function sortJobsForManagement(jobs, sortKey, direction) {
-        const opt = MGMT_SORT_OPTIONS[sortKey] || MGMT_SORT_OPTIONS.default;
-        const sorted = opt.fn(jobs);
-        return direction === 'desc' ? sorted.reverse() : sorted;
+    // 페이지 번호 버튼 (운영목록·운영 관리 공통)
+    function renderPagination(el, totalPages, currentPage, handlerName) {
+        el.innerHTML = totalPages > 1
+            ? Array.from({ length: totalPages }, (_, i) => i + 1)
+                .map(i => `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${handlerName}(${i})">${i}</button>`).join('')
+            : '';
+    }
+
+    // 접기·펼치기 화살표
+    function chevronSvg(expanded) {
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${expanded ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}"/></svg>`;
+    }
+
+    // 운영 관리·주간보고의 날짜별 기록 표: 날짜 | 소요 시간 | 메모
+    function buildDailyLogTable(logs, dateLabel, extraClass) {
+        if (!logs.length) return '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
+        const byDate = {};
+        logs.forEach(l => {
+            const g = byDate[l.date] || (byDate[l.date] = { ms: 0, bullets: [] });
+            g.ms += l.durationMs || 0;
+            if (l.bullets) g.bullets.push(...l.bullets);
+        });
+        const rows = Object.keys(byDate).sort().map(d =>
+            `<tr><td class="col-date">${dateLabel(d)}</td><td class="col-duration">${formatDuration(byDate[d].ms)}</td><td class="col-content">${buildDotLines(byDate[d].bullets)}</td></tr>`);
+        return `<table class="log-detail-table ${extraClass || ''}">${rows.join('')}</table>`;
     }
 
     // 진행상태 quick-menu labels, shared by the status button and its dropdown options.
     const STATUS_QUICK_LABELS = { active: '진행중', completed: '완료', suspended: '중단' };
 
-    // The current status a job carries (job.status) reflects "right now" — but a report for a past
-    // period should show what the status was AS OF that period, not today. 관리업무 has no dates and
-    // is always shown as such. Otherwise: if the job's completion date is on or before the reference
-    // date, it had already been marked 완료 by then; if not (or no end date yet), it was still 진행중.
-    // 주간보고용: referenceDateStr = 해당 주의 일요일. 그 주까지 완료된 운영은 '완료'로 표시한다.
-    // (흐리게 처리할지는 weekly.js에서 '주 시작 이전 완료'인지로 따로 판단)
+    // 주간보고용 '그 주 기준' 상태: referenceDateStr(그 주 일요일)까지 완료일이 지났으면 완료, 아니면 진행중.
+    // 관리업무는 날짜가 없어 항상 관리업무. (흐리게 할지는 weekly.js에서 '주 시작 전에 완료'인지로 따로 판단)
     function getStatusAsOfDate(job, referenceDateStr) {
         if (job.status === 'admin') return 'admin';
         if (job.endDate && job.endDate <= referenceDateStr) return 'completed';
@@ -208,16 +221,6 @@
         const level = match ? match[1].length : 0;
         const text = str.replace(/^\t+/, '').replace(/^[•\-\*]\s*/, '');
         return { level, text };
-    }
-
-    function buildBulletHTML(arr) { 
-        if(!arr || !arr.length) return '';
-        const uniqueArr = [...new Set(arr)];
-        return `<ul class="clean-list">${uniqueArr.map(b => {
-            const { level, text } = parseBulletLevel(b);
-            const indentStyle = level > 0 ? ` style="margin-left:${level * 16}px;"` : '';
-            return `<li${indentStyle}>${escapeHtml(text).replace(/\n/g, '<br>')}</li>`;
-        }).join('')}</ul>`; 
     }
 
     function buildDotLines(arr) {
@@ -295,9 +298,7 @@
         containerEl.innerHTML = '';
         const INDENT_PX = 20;
 
-        // Small hint teaching the Tab-to-indent feature: shown whenever there's a second bullet
-        // line (so it doesn't clutter the very first line) — until Tab has been used once anywhere
-        // on the page, after which it stays hidden for the rest of this page load.
+        // Tab으로 하위 항목을 만들 수 있다는 안내. 두 번째 줄부터 보이고, Tab을 한 번이라도 쓰면 다시 안 보인다.
         const hintEl = document.createElement('div');
         hintEl.className = 'bullet-tab-hint hidden';
         hintEl.textContent = 'Tab을 누르면 하위 항목으로 정리할 수 있어요';

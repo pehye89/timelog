@@ -43,9 +43,7 @@
         const includeSuspended = document.getElementById('trackerIncludeSuspended')?.checked;
         let displayJobs = getVisiblePresetsForDate(selectedDate, includeCompleted, includeSuspended);
 
-        // A job that actually has logged time today should always appear in the grid, even if
-        // "완료 포함" is off — the data is real, so hiding its row would make that recorded time
-        // invisible on the timeline even though it still shows in the 타임로그 list below.
+        // 그날 기록이 있는 운영은 「완료 포함」이 꺼져 있어도 항상 보여준다 (기록된 시간이 사라져 보이지 않게)
         const executedJobIds = new Set(history.map(h => h.jobId));
         if (executedJobIds.size) {
             const shownIds = new Set(displayJobs.map(j => j.id));
@@ -88,13 +86,10 @@
             .map(x => x.job);
 
         if (!timelineOrderManuallySet) {
-            // No manual drag has happened yet (or the page/date changed since) — keep continuously
-            // re-deriving the row order from execution time every render, so newly-logged work
-            // moves rows up immediately instead of freezing at whatever order first appeared.
+            // 드래그 전에는 그릴 때마다 실행 순으로 다시 정한다 (새로 기록한 운영이 바로 위로 올라오게)
             timelineJobOrder = defaultSortedJobs.map(j => j.id);
-        } else if (timelineJobOrder.length === 0 || timelineJobOrder.length !== defaultSortedJobs.length) {
-            // The set of visible jobs changed size (new job appeared/disappeared) — re-derive, but
-            // keep as much of the user's manual order as still applies.
+        } else if (timelineJobOrder.length !== defaultSortedJobs.length) {
+            // 보이는 운영이 늘거나 줄었으면, 드래그한 순서는 지키고 새 운영만 뒤에 붙인다
             const currentIds = defaultSortedJobs.map(j => j.id);
             timelineJobOrder = timelineJobOrder.filter(id => currentIds.includes(id));
             currentIds.forEach(id => { if (!timelineJobOrder.includes(id)) timelineJobOrder.push(id); });
@@ -165,10 +160,7 @@
         updateNowLine();
     }
 
-    // Positions a thin vertical line on the grid marking the current wall-clock time — only shown
-    // when viewing today and within working hours. Uses actual measured positions of a rendered
-    // .timeline-grid cell (rather than hardcoded offsets) so it stays aligned even if column widths
-    // or the label width change.
+    // 지금 시각을 나타내는 세로선. 오늘을 보고 있고 근무 시간 안일 때만, 실제 그려진 칸 위치를 재서 맞춘다.
     function updateNowLine() {
         const line = document.getElementById('nowLineIndicator');
         if (!line) return;
@@ -204,21 +196,8 @@
         line.classList.remove('hidden');
     }
 
-    // Highlights, with a blinking CSS animation, the grid cells covering the time span of a
-    // currently-running timer session (from its start time to "now"). This is a lightweight DOM
-    // update (no full re-render) so it can run every second without disrupting the grid. Adjacent
-    // live cells are merged into one continuous block (same run-start/mid/end/single +
-    // run-attach-right treatment used for filled/lunch-time cells), instead of showing as separate
-    // small squares.
-    //
-    // To keep every live cell blinking in perfect lockstep (rather than drifting out of phase, or
-    // jumping/speeding up when their phase gets nudged mid-cycle), every currently-live cell is
-    // force-restarted together each time this runs: remove the class, read a layout property to
-    // force the browser to actually apply that removal (otherwise a same-frame remove+re-add can be
-    // silently skipped), then re-add it. Since this restart happens every 1000ms and the CSS
-    // animation's own duration is also 1000ms (see below), each restart lands exactly where the
-    // previous cycle was already finishing — so there's no visible stutter, just a continuous,
-    // steady, perfectly-synced blink.
+    // 기록 중인 구간(시작 ~ 지금)의 칸을 깜빡이게 표시한다. 1초마다 전체를 다시 그리지 않고 class만 바꾼다.
+    // 모든 칸이 같은 박자로 깜빡이도록 매번 class를 뺐다가(리플로우로 확정) 다시 넣어 애니메이션을 함께 새로 시작한다.
     function updateLiveTimelineCells() {
         const grid = document.getElementById('ganttRows');
         if (!grid) return;
@@ -257,12 +236,8 @@
         });
     }
 
-    // Deletes just one interval slice from the underlying log entry for jobId — trimming the
-    // start/end, or splitting the entry in two if the clicked slice is in the middle. Pure mutation
-    // on the given `history` array (no confirm, no save, no render) so callers can batch several of
-    // these together and only save/confirm once. Returns whether anything changed, and whether this
-    // particular slice was an exact full-entry removal that had notes on it (the only case where
-    // notes actually get lost — trims and splits both keep the entry's notes).
+    // 기록에서 한 칸(간격 하나)만 지운다: 앞·뒤를 자르거나, 가운데면 둘로 나눈다. history만 고치고 저장은 하지 않는다.
+    // notesLost는 메모가 있는 기록이 통째로 사라질 때만 true (자르거나 나누면 메모는 남는다).
     function deleteTimeBlockCore(history, jobId, dateStr, blockStartMins) {
         const interval = parseInt(appSettings.roundSetting || '10', 10);
         const blockEndMins = blockStartMins + interval;
@@ -318,9 +293,7 @@
         return { changed: true, notesLost };
     }
 
-    // Commits one or more block deletions for a single job/day as one save+render. Only warns if a
-    // note-bearing entry would actually be fully removed — trimming or splitting never loses notes,
-    // so those never trigger the warning.
+    // 여러 칸 지우기를 한 번에 저장한다. 메모가 있는 기록이 통째로 사라질 때만 확인을 받는다.
     function commitBlockDeletions(jobId, blockStartsMinsList) {
         const dateStr = document.getElementById('hiddenDateInput').value;
         const history = getHistory();
@@ -341,12 +314,11 @@
             if (!confirm(msg)) return;
         }
 
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        saveHistory(history);
         renderAll();
     }
 
-    // ---- Drag-to-erase: mousedown on a filled cell starts erasing, dragging over more filled
-    // cells (of the same job) adds them, mouseup commits all of them as a single batch. ----
+    // ---- 드래그로 지우기: 채워진 칸을 누르고 같은 운영의 칸 위로 끌면 모아 두었다가, 손을 떼면 한 번에 지운다 ----
     function startErase(e, jobId, mins, isFilled) {
         if (e.button !== 0 || !isFilled) return;
         eraseState = { isErasing: true, jobId, cellsSet: new Set([mins]) };
@@ -413,7 +385,7 @@
 
         openModal('manualAddModal');
         const select = document.getElementById('manualAddJob');
-        select.innerHTML = getPresets().map(p => `<option value="${p.id}">[${escapeHtml(p.opsCode)}] ${escapeHtml(p.opsName)}</option>`).join('');
+        select.innerHTML = getPresets().filter(p => p.status !== 'deleted').map(p => `<option value="${p.id}">[${escapeHtml(p.opsCode)}] ${escapeHtml(p.opsName)}</option>`).join('');
         if(select.querySelector(`option[value="${state.jobId}"]`)) select.value = state.jobId;
         
         document.getElementById('manualAddDate').value = document.getElementById('hiddenDateInput').value;

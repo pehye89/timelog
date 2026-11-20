@@ -42,8 +42,12 @@
         const totalsByJob = {};
         weekHistory.forEach(h => {
             if (!totalsByJob[h.jobId]) {
-                const asOfStatus = getStatusAsOfDate(presetsMap[h.jobId] || {}, referenceDateStr);
-                totalsByJob[h.jobId] = { ms: 0, endDate: (presetsMap[h.jobId] || {}).endDate, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName, status: asOfStatus, endedBeforeWeek: !!(presetsMap[h.jobId] && presetsMap[h.jobId].endDate && presetsMap[h.jobId].endDate < weekStartStr) };
+                const job = presetsMap[h.jobId] || {};
+                totalsByJob[h.jobId] = {
+                    ms: 0, endDate: job.endDate, opsCode: h.opsCode, opsName: h.opsName, taskCode: h.taskCode, taskName: h.taskName,
+                    status: getStatusAsOfDate(job, referenceDateStr),
+                    endedBeforeWeek: !!(job.endDate && job.endDate < weekStartStr)
+                };
             }
             totalsByJob[h.jobId].ms += h.durationMs || 0;
         });
@@ -86,7 +90,6 @@
         container.innerHTML = html;
     }
 
-    // Weekly Report Render with Optimized Layout
     function renderWeekly() {
         if(document.getElementById('tabWeeklyView').classList.contains('hidden')) return;
         const d = new Date(currentWeekDate); const day = d.getDay() || 7; d.setHours(0,0,0,0);
@@ -101,68 +104,33 @@
         const weekStartStr = dateToIso(mon);
         const presets = getPresets().filter(p => p.status !== 'deleted');
         const history = getHistory();
-        const weekHistory = history.filter(h => { const hd = new Date(h.date); return hd >= mon && hd <= sun; });
+        const weekHistory = history.filter(h => h.date >= weekStartStr && h.date <= referenceDateStr);
 
         renderWeeklySummary(weekHistory, referenceDateStr, weekStartStr);
 
-        const c = document.getElementById('weeklyContainer'); c.innerHTML = '';
-
+        const c = document.getElementById('weeklyContainer');
         const sortedPresets = sortJobsForWeekly(presets.map(p => ({ ...p, status: getStatusAsOfDate(p, referenceDateStr) })), weekStartStr);
 
-        if(sortedPresets.length === 0) {
-            return c.innerHTML = '<div class="empty-state">해당하는 운영이 없습니다.</div>';
-        }
-
-        let renderedCount = 0;
-
-        sortedPresets.forEach(job => {
+        const dayLabel = (iso) => { const dt = isoToDate(iso); return `${String(dt.getDate()).padStart(2, '0')} ${DAYS_EN[dt.getDay()]}`; };
+        // 그 주에 기록이 있는 운영만 보여준다
+        const panels = sortedPresets.map(job => {
             const jobLogs = weekHistory.filter(h => h.jobId === job.id);
             const totalMs = jobLogs.reduce((acc, curr) => acc + (curr.durationMs || 0), 0);
-            if (totalMs === 0) return;
-            renderedCount++;
+            if (totalMs === 0) return '';
 
             const isExpanded = jobCollapseState[`weekly_${job.id}`] === true;
-
-            const datesGroup = {};
-            jobLogs.forEach(l => {
-                if(!datesGroup[l.date]) datesGroup[l.date] = { ms: 0, bullets: [] };
-                datesGroup[l.date].ms += l.durationMs;
-                if(l.bullets) datesGroup[l.date].bullets.push(...l.bullets);
-            });
-
-            const sortedDates = Object.keys(datesGroup).sort((a, b) => a.localeCompare(b));
-
-            let datesTreeHtml = '';
-            if (sortedDates.length > 0) {
-                datesTreeHtml = '<table class="log-detail-table log-detail-table--weekly">';
-                sortedDates.forEach(dateStr => {
-                    const dateObj = new Date(dateStr); const dayStr = DAYS_EN[dateObj.getDay()];
-                    const dayNum = String(dateObj.getDate()).padStart(2, '0');
-                    const dg = datesGroup[dateStr];
-                    datesTreeHtml += `<tr><td class="col-date">${dayNum} ${dayStr}</td><td class="col-duration">${formatDuration(dg.ms)}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
-                });
-                datesTreeHtml += '</table>';
-            } else {
-                datesTreeHtml = '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
-            }
-
             const isDone = job.status === 'completed';
             const isAdmin = job.status === 'admin';
-            const endedBeforeWeek = !!(job.endDate && job.endDate < weekStartStr);
-
+            // 주 시작 전에 이미 끝난 운영과 관리업무는 얇고 흐리게
+            const isCompact = isAdmin || !!(job.endDate && job.endDate < weekStartStr);
             const allTimeMs = history.filter(h => h.jobId === job.id).reduce((acc, h) => acc + (h.durationMs || 0), 0);
-            const isCompact = endedBeforeWeek || isAdmin;
-
             const metaLineHtml = isAdmin ? '' : `<div class="job-panel-dates">${formatPeriod(getEffectiveStartDate(job, history), job.endDate)}<span class="sep">·</span>누적 ${formatDuration(allTimeMs)}</div>`;
 
-            c.innerHTML += `
+            return `
                 <div class="job-panel ${isCompact ? 'is-compact is-done' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
-                            <button class="btn-text icon-btn-circle" onclick="toggleWeeklyExpand(${job.id})">
-                                ${isExpanded ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'}
-                            </button>
-
+                            <button class="btn-text icon-btn-circle" onclick="toggleWeeklyExpand(${job.id})">${chevronSvg(isExpanded)}</button>
                             <div class="job-panel-info job-panel-info--half">
                                 <div class="job-panel-title job-panel-title--wrap">${escapeHtml(job.opsName)}</div>
                                 <div class="truncate-line">${renderOpTaskMeta(job.opsCode, job.taskName, job.taskCode)}</div>
@@ -174,14 +142,11 @@
                             ${isAdmin ? '' : `<span class="status-toggle-btn status-toggle-btn--readonly ${isDone ? 'completed' : 'active'}">${isDone ? '완료' : '진행중'}</span>`}
                         </div>
                     </div>
-
                     <div class="job-panel-body ${isExpanded ? '' : 'is-collapsed'}">
-                        ${datesTreeHtml}
+                        ${buildDailyLogTable(jobLogs, dayLabel, 'log-detail-table--weekly')}
                     </div>
                 </div>`;
-        });
+        }).join('');
 
-        if (renderedCount === 0) {
-            c.innerHTML = '<div class="empty-state">해당 조건에 기록된 운영이 없습니다.</div>';
-        }
+        c.innerHTML = panels || '<div class="empty-state">해당 조건에 기록된 운영이 없습니다.</div>';
     }

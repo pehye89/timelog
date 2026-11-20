@@ -1,11 +1,7 @@
     function switchMgmtTab(status) {
         mgmtStatusTab = status; mgmtCurrentPage = 1;
-        document.getElementById('mgmtTabAll').classList.toggle('active', status === 'all');
-        document.getElementById('mgmtTabActive').classList.toggle('active', status === 'active');
-        document.getElementById('mgmtTabCompleted').classList.toggle('active', status === 'completed');
-        document.getElementById('mgmtTabSuspended').classList.toggle('active', status === 'suspended');
-        document.getElementById('mgmtTabAdmin').classList.toggle('active', status === 'admin');
-        document.getElementById('mgmtTabDeleted').classList.toggle('active', status === 'deleted');
+        const tabs = { all: 'mgmtTabAll', active: 'mgmtTabActive', completed: 'mgmtTabCompleted', suspended: 'mgmtTabSuspended', admin: 'mgmtTabAdmin', deleted: 'mgmtTabDeleted' };
+        Object.entries(tabs).forEach(([key, id]) => document.getElementById(id).classList.toggle('active', status === key));
         document.getElementById('mgmtBulkBtns').classList.toggle('hidden', status === 'deleted');
         renderManagement();
     }
@@ -18,26 +14,8 @@
         document.getElementById('mgmtSortPopover').classList.toggle('open');
     }
 
-    function renderMgmtSortOptions() {
-        const wrap = document.getElementById('mgmtSortOptions');
-        if (!wrap) return;
-        wrap.innerHTML = '';
-        Object.keys(MGMT_SORT_OPTIONS).forEach(key => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'sort-option-item' + (mgmtSortOrder === key ? ' active' : '');
-            btn.textContent = MGMT_SORT_OPTIONS[key].label;
-            btn.onclick = () => setMgmtSortOrder(key);
-            wrap.appendChild(btn);
-        });
-    }
-
-    function updateMgmtSortDirectionButtons() {
-        const btn = document.getElementById('mgmtSortDirBtn');
-        if (!btn) return;
-        btn.classList.toggle('desc', mgmtSortDirection === 'desc');
-        btn.title = mgmtSortDirection === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
-    }
+    function renderMgmtSortOptions() { renderSortOptionButtons('mgmtSortOptions', MGMT_SORT_OPTIONS, mgmtSortOrder, setMgmtSortOrder); }
+    function updateMgmtSortDirectionButtons() { updateSortDirButton('mgmtSortDirBtn', mgmtSortDirection); }
 
     // 기본값 = 운영번호 내림차순. 아이콘은 사용자가 기본값과 다른 정렬을 골랐을 때만 강조된다.
     function refreshMgmtSortIndicator() {
@@ -70,13 +48,7 @@
         renderManagement();
     }
 
-    document.addEventListener('click', (e) => {
-        const wrap = document.getElementById('mgmtSortFilterWrap');
-        const popover = document.getElementById('mgmtSortPopover');
-        if (!wrap || !popover || !popover.classList.contains('open')) return;
-        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
-        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
-    });
+    closeOnOutsideClick('mgmtSortFilterWrap', 'mgmtSortPopover');
 
     function changeMgmtPage(page) { mgmtCurrentPage = page; renderManagement(); }
 
@@ -95,13 +67,7 @@
         document.getElementById('mgmtDateFilterToggle').classList.toggle('has-filter', hasFilter);
     }
 
-    document.addEventListener('click', (e) => {
-        const wrap = document.getElementById('mgmtSearchFilterWrap');
-        const popover = document.getElementById('mgmtDateFilterPopover');
-        if (!wrap || !popover || !popover.classList.contains('open')) return;
-        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
-        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
-    });
+    closeOnOutsideClick('mgmtSearchFilterWrap', 'mgmtDateFilterPopover');
 
     function clearMgmtFilter() {
         filters.management = { search: '', dateFrom: '', dateTo: '' };
@@ -133,10 +99,7 @@
             menu.appendChild(btn);
         });
 
-        // .quick-complete-menu uses position:fixed (viewport-relative), so the raw
-        // getBoundingClientRect() values are used directly — adding window.scrollX/scrollY here
-        // would double-count the scroll offset and push the menu away from the button whenever
-        // the page is scrolled.
+        // 메뉴는 position:fixed라 화면 좌표를 그대로 쓴다 (scrollY를 더하면 스크롤 시 어긋남)
         const rect = e.currentTarget.getBoundingClientRect();
         menu.style.top = `${rect.bottom + 6}px`;
         menu.style.left = `${rect.left}px`;
@@ -148,7 +111,7 @@
         if (idx > -1) {
             p[idx].status = newStatus;
             if (newStatus === 'completed' && !p[idx].endDate) p[idx].endDate = getTodayIso();
-            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+            savePresets(p);
             renderAll();
             const toastMsgs = { active: '진행중으로 변경되었습니다', completed: '완료되었습니다', suspended: '중단으로 변경되었습니다' };
             showToast(toastMsgs[newStatus] || '변경되었습니다');
@@ -173,7 +136,7 @@
                 p[idx].previousStatus = p[idx].status;
                 p[idx].status = 'deleted';
                 p[idx].deletedAt = new Date().toISOString();
-                localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+                savePresets(p);
             }
             closeModal('editJobModal');
             renderAll();
@@ -186,7 +149,7 @@
             p[idx].status = p[idx].previousStatus || 'active';
             delete p[idx].deletedAt;
             delete p[idx].previousStatus;
-            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+            savePresets(p);
             renderAll();
         }
     }
@@ -194,9 +157,9 @@
     function permanentlyDeleteJob(id) {
         if (!confirm('영구 삭제하면 되돌릴 수 없습니다. 해당 운영과 관련 기록을 완전히 삭제할까요?')) return;
         const p = getPresets().filter(x => x.id !== id);
-        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(p));
+        savePresets(p);
         const h = getHistory().filter(x => x.jobId !== id);
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(h));
+        saveHistory(h);
         renderAll();
     }
 
@@ -218,7 +181,7 @@
         if(document.getElementById('tabManagementView').classList.contains('hidden')) return;
 
         const f = filters.management;
-        const allPresets = getPresets(); const c = document.getElementById('jobManagementContainer'); c.innerHTML = '';
+        const allPresets = getPresets(); const c = document.getElementById('jobManagementContainer');
         const allHistory = getHistory();
         const filteredJobs = sortJobsForManagement(
             allPresets
@@ -231,41 +194,17 @@
         if(mgmtCurrentPage > totalPages) mgmtCurrentPage = totalPages;
         const pageJobs = filteredJobs.slice((mgmtCurrentPage - 1) * MGMT_ITEMS_PER_PAGE, mgmtCurrentPage * MGMT_ITEMS_PER_PAGE);
 
-        if(pageJobs.length === 0) c.innerHTML = '<div class="empty-state">해당하는 항목이 없습니다.</div>';
-
-        pageJobs.forEach(job => {
+        c.innerHTML = pageJobs.length ? pageJobs.map(job => {
             const isDone = job.status === 'completed';
             const isAdmin = job.status === 'admin';
             const isDeleted = job.status === 'deleted';
             const expanded = !!jobCollapseState[job.id];
-            let logs = allHistory.filter(h => h.jobId === job.id);
-            if (f.dateFrom || f.dateTo) logs = logs.filter(l => inDateRange(l.date, f.dateFrom, f.dateTo));
+            const jobLogs = allHistory.filter(h => h.jobId === job.id);
+            const allTimeMs = jobLogs.reduce((acc, h) => acc + (h.durationMs || 0), 0);
+            // 기간 필터는 펼쳤을 때 보이는 날짜별 기록에만 적용된다
+            const logsHtml = expanded ? buildDailyLogTable(jobLogs.filter(l => inDateRange(l.date, f.dateFrom, f.dateTo)), d => d) : '';
             const jobColor = job.color || '#334155';
-
-            let logsHtml = '';
-            if(expanded) {
-                if(logs.length === 0) {
-                    logsHtml = '<div class="log-detail-empty">해당 조건에 기록된 업무가 없습니다.</div>';
-                } else {
-                    const datesGroup = {};
-                    logs.forEach(l => {
-                        if(!datesGroup[l.date]) datesGroup[l.date] = { ms: 0, bullets: [] };
-                        datesGroup[l.date].ms += l.durationMs;
-                        if(l.bullets) datesGroup[l.date].bullets.push(...l.bullets);
-                    });
-                    const sortedDates = Object.keys(datesGroup).sort((a, b) => a.localeCompare(b));
-
-                    logsHtml = '<table class="log-detail-table">';
-                    sortedDates.forEach(dateStr => {
-                        const dg = datesGroup[dateStr];
-                        logsHtml += `<tr><td class="col-date">${dateStr}</td><td class="col-duration">${formatDuration(dg.ms)}</td><td class="col-content">${buildDotLines(dg.bullets)}</td></tr>`;
-                    });
-                    logsHtml += '</table>';
-                }
-            }
-
-            const allTimeMs = allHistory.filter(h => h.jobId === job.id).reduce((acc, h) => acc + (h.durationMs || 0), 0);
-            const isCompact = job.status === 'completed' || job.status === 'suspended' || isDeleted;
+            const isCompact = isDone || isDeleted || job.status === 'suspended';
 
             const deletedBadge = isDeleted ? `<div class="job-panel-dates"><span class="badge-deleted">삭제됨 · ${daysRemaining(job.deletedAt)}일 후 완전 삭제</span></div>` : '';
             // 시작 · 완료 · 누적 소요를 작은 회색 한 줄로 합침 (관리업무·휴지통은 표시 안 함)
@@ -285,13 +224,11 @@
                     <button class="status-toggle-btn status-toggle-btn--sm ${job.status}" onclick="openStatusQuickMenu(event, ${job.id})">${curLabel}<span class="status-toggle-caret">▾</span></button>`;
             }
 
-            c.innerHTML += `
+            return `
                 <div class="job-panel ${isCompact ? 'is-compact' : ''} ${isDone ? 'is-done' : ''} ${isDeleted ? 'is-deleted' : ''}">
                     <div class="flex-between job-panel-head">
                         <div class="job-panel-main">
-                            <button class="btn-text icon-btn-circle" onclick="toggleHistoryExpand(${job.id})">
-                                ${expanded ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'}
-                            </button>
+                            <button class="btn-text icon-btn-circle" onclick="toggleHistoryExpand(${job.id})">${chevronSvg(expanded)}</button>
                             <span class="color-dot" style="--job-color: ${jobColor};"></span>
                             <div class="job-panel-info">
                                 <div class="job-panel-title">${escapeHtml(job.opsName)}</div>
@@ -305,10 +242,9 @@
                     </div>
                     <div class="job-panel-body ${expanded ? '' : 'is-collapsed'}">${logsHtml}</div>
                 </div>`;
-        });
+        }).join('') : '<div class="empty-state">해당하는 항목이 없습니다.</div>';
 
-        const paginationContainer = document.getElementById('jobManagementPagination'); paginationContainer.innerHTML = '';
-        if(totalPages > 1) { for(let i = 1; i <= totalPages; i++) { paginationContainer.innerHTML += `<button class="page-btn ${i === mgmtCurrentPage ? 'active' : ''}" onclick="changeMgmtPage(${i})">${i}</button>`; } }
+        renderPagination(document.getElementById('jobManagementPagination'), totalPages, mgmtCurrentPage, 'changeMgmtPage');
     }
 
     function saveNewJob() {
@@ -320,10 +256,11 @@
             opsName: document.getElementById('newOpsName').value.trim(), 
             taskCode: document.getElementById('newTaskCode').value.trim(), 
             taskName: document.getElementById('newTaskName').value.trim(), 
+            erpBizz: document.getElementById('newErpBizz').value.trim(),   // ERP 「업무」 칸 (비우면 기본값 '운영')
             startDate: isAdmin ? '' : (document.getElementById('hiddenDateInput').value || getTodayIso()), endDate: '' 
         });
-        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets)); closeModal('addJobModal'); 
-        ['newOpsCode', 'newOpsName', 'newTaskCode', 'newTaskName'].forEach(id => document.getElementById(id).value = '');
+        savePresets(presets); closeModal('addJobModal'); 
+        ['newOpsCode', 'newOpsName', 'newTaskCode', 'newTaskName', 'newErpBizz'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('newIsAdmin').checked = false;
         renderAll();
     }
@@ -364,8 +301,10 @@
         document.getElementById('editOpsName').value = job.opsName || ''; 
         document.getElementById('editTaskCode').value = job.taskCode || '';
         document.getElementById('editTaskName').value = job.taskName || ''; 
-        document.getElementById('editJobStartDate').value = getEffectiveStartDate(job) || '';
-        document.getElementById('editJobStartDate').dataset.shown = getEffectiveStartDate(job) || '';
+        document.getElementById('editErpBizz').value = job.erpBizz || '';
+        // 화면에 보인 시작일을 기억해 두고, 저장할 때 바뀐 경우에만 직접 지정한 것으로 본다
+        const startEl = document.getElementById('editJobStartDate');
+        startEl.value = startEl.dataset.shown = getEffectiveStartDate(job) || '';
         document.getElementById('editJobEndDate').value = job.endDate || '';
         document.getElementById('editJobStatus').value = ['admin', 'completed', 'suspended'].includes(job.status) ? job.status : 'active';
         toggleEditJobDateFields();
@@ -385,6 +324,7 @@
         if (idx > -1) {
             presets[idx].opsCode = document.getElementById('editOpsCode').value.trim(); presets[idx].opsName = document.getElementById('editOpsName').value.trim();
             presets[idx].taskCode = document.getElementById('editTaskCode').value.trim(); presets[idx].taskName = document.getElementById('editTaskName').value.trim();
+            presets[idx].erpBizz = document.getElementById('editErpBizz').value.trim();
             const newStatus = document.getElementById('editJobStatus').value;
             presets[idx].status = newStatus;
             if (newStatus === 'admin') {
@@ -401,11 +341,14 @@
             presets[idx].color = tempSelectedColor;
             presets[idx].isCustomColor = isTempCustomColor;
 
-            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+            savePresets(presets);
             
-            const history = getHistory(); let historyChanged = false;
-            history.forEach(h => { if (h.jobId === id) { h.opsCode = presets[idx].opsCode; h.opsName = presets[idx].opsName; h.taskCode = presets[idx].taskCode; h.taskName = presets[idx].taskName; historyChanged = true; } });
-            if(historyChanged) localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+            // 기록에 함께 저장된 운영 정보도 새 값으로 맞춘다
+            const history = getHistory();
+            const { opsCode, opsName, taskCode, taskName } = presets[idx];
+            const mine = history.filter(h => h.jobId === id);
+            mine.forEach(h => Object.assign(h, { opsCode, opsName, taskCode, taskName }));
+            if (mine.length) saveHistory(history);
             
             closeModal('editJobModal'); renderAll();
         }

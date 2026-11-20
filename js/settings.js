@@ -96,7 +96,7 @@
                 job.color = newPalette[index % newPalette.length];
             }
         });
-        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+        savePresets(presets);
 
         localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(appSettings)); 
         applyTheme(); closeModal('settingsModal'); renderAll();
@@ -110,21 +110,25 @@
     }
 
     function triggerImport() { document.getElementById('importFileInput').click(); }
+    // 파일 불러오기·드라이브 복원 공통: 형식을 먼저 확인한 뒤 저장하고 화면을 새로 그린다
+    function applyImportedData(data) {
+        if (!data || typeof data !== 'object'
+            || (data.presets && !Array.isArray(data.presets))
+            || (data.history && !Array.isArray(data.history))) throw new Error('데이터 형식이 올바르지 않습니다.');
+        if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...appSettings, ...data.settings }));
+        if (data.presets) savePresets(data.presets);
+        if (data.history) saveHistory(data.history);
+        loadSettings(); renderAll(); closeModal('exportBackupModal');
+    }
+
     function handleImport(event) {
-        const file = event.target.files[0]; if(!file) return;
+        const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const data = JSON.parse(e.target.result);
-                if(data.settings) {
-                    const importedSettings = { ...appSettings, ...data.settings };
-                    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(importedSettings));
-                }
-                if(data.presets) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(data.presets));
-                if(data.history) localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(data.history));
-                
-                alert('데이터를 성공적으로 불러왔습니다.'); loadSettings(); renderAll(); closeModal('exportBackupModal');
-            } catch(err) { alert('데이터 형식이 올바르지 않거나 손상된 파일입니다.'); }
+                applyImportedData(JSON.parse(e.target.result));
+                alert('데이터를 성공적으로 불러왔습니다.');
+            } catch (err) { alert('데이터 형식이 올바르지 않거나 손상된 파일입니다.'); }
         };
-        reader.readAsText(file); event.target.value = ''; 
+        reader.readAsText(file); event.target.value = '';
     }

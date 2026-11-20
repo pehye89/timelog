@@ -13,23 +13,22 @@
         document.getElementById('hiddenDateInput').value = newDateStr;
         document.getElementById('todayBtnTracker').classList.toggle('is-today', newDateStr === getTodayIso());
     }
+    // 날짜 이동은 항상 평일로 (캘린더에서도 주말은 고를 수 없다)
     function changeDate(offset) {
-        const inputVal = document.getElementById('hiddenDateInput').value; if(!inputVal) return;
-        let d = new Date(inputVal); do { d.setDate(d.getDate() + offset); } while (d.getDay() === 0 || d.getDay() === 6);
-        updateVisualDate(d); renderAll();
+        const inputVal = document.getElementById('hiddenDateInput').value; if (!inputVal) return;
+        const d = isoToDate(inputVal); d.setDate(d.getDate() + offset);
+        updateVisualDate(skipWeekend(d, offset)); renderAll();
     }
     function handleDateChange(val) {
-        if(!val) return; const d = new Date(val);
-        if(d.getDay() === 0 || d.getDay() === 6) { alert("주말은 건너뜁니다."); changeDate(d.getDay() === 6 ? 2 : 1); return; }
-        updateVisualDate(d); renderAll();
+        if (!val) return;
+        updateVisualDate(skipWeekend(isoToDate(val), 1)); renderAll();
     }
     function goToToday() {
-        let d = new Date(); if(d.getDay() === 0) d.setDate(d.getDate() + 1); if(d.getDay() === 6) d.setDate(d.getDate() + 2);
-        updateVisualDate(d); renderAll();
+        updateVisualDate(skipWeekend(new Date(), 1)); renderAll();
     }
 
     function renderTodoList() {
-        const listEl = document.getElementById('jobPresetList'); listEl.innerHTML = '';
+        const listEl = document.getElementById('jobPresetList');
         const selectedDate = document.getElementById('hiddenDateInput').value;
         const includeCompleted = document.getElementById('trackerIncludeCompleted')?.checked;
         const includeSuspended = document.getElementById('trackerIncludeSuspended')?.checked;
@@ -49,10 +48,10 @@
         if (trackerListPage > totalPages) trackerListPage = totalPages;
         const pageItems = visiblePresets.slice((trackerListPage - 1) * TRACKER_LIST_PAGE_SIZE, trackerListPage * TRACKER_LIST_PAGE_SIZE);
 
-        pageItems.forEach(job => {
+        listEl.innerHTML = pageItems.map(job => {
             const isActive = currentJob && currentJob.id === job.id;
             const completedTag = (job.status === 'completed' || job.status === 'suspended') ? statusPillHtml(job.status) : '';
-            listEl.innerHTML += `
+            return `
                 <div class="todo-item ${isActive ? 'active' : ''}">
                     <div class="todo-item-body">
                         <div class="todo-title-row">
@@ -65,15 +64,9 @@
                         ${isActive ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'}
                     </button>
                 </div>`;
-        });
+        }).join('');
 
-        const paginationEl = document.getElementById('jobPresetPagination');
-        paginationEl.innerHTML = '';
-        if (totalPages > 1) {
-            for (let i = 1; i <= totalPages; i++) {
-                paginationEl.innerHTML += `<button class="page-btn ${i === trackerListPage ? 'active' : ''}" onclick="changeTrackerListPage(${i})">${i}</button>`;
-            }
-        }
+        renderPagination(document.getElementById('jobPresetPagination'), totalPages, trackerListPage, 'changeTrackerListPage');
     }
 
     function changeTrackerListPage(page) { trackerListPage = page; renderTodoList(); }
@@ -86,26 +79,8 @@
         document.getElementById('trackerFilterPopover').classList.toggle('open');
     }
 
-    function renderTrackerSortOptions() {
-        const wrap = document.getElementById('trackerSortOptions');
-        if (!wrap) return;
-        wrap.innerHTML = '';
-        Object.keys(TRACKER_SORT_OPTIONS).forEach(key => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'sort-option-item' + (trackerSortOrder === key ? ' active' : '');
-            btn.textContent = TRACKER_SORT_OPTIONS[key].label;
-            btn.onclick = () => setTrackerSortOrder(key);
-            wrap.appendChild(btn);
-        });
-    }
-
-    function updateTrackerSortDirectionButton() {
-        const btn = document.getElementById('trackerSortDirBtn');
-        if (!btn) return;
-        btn.classList.toggle('desc', trackerSortDirection === 'desc');
-        btn.title = trackerSortDirection === 'asc' ? '오름차순 (클릭 시 내림차순)' : '내림차순 (클릭 시 오름차순)';
-    }
+    function renderTrackerSortOptions() { renderSortOptionButtons('trackerSortOptions', TRACKER_SORT_OPTIONS, trackerSortOrder, setTrackerSortOrder); }
+    function updateTrackerSortDirectionButton() { updateSortDirButton('trackerSortDirBtn', trackerSortDirection); }
 
     function refreshTrackerFilterIndicator() {
         const includeCompleted = document.getElementById('trackerIncludeCompleted')?.checked;
@@ -158,13 +133,7 @@
         renderHistory();
     }
 
-    document.addEventListener('click', (e) => {
-        const wrap = document.getElementById('trackerFilterWrap');
-        const popover = document.getElementById('trackerFilterPopover');
-        if (!wrap || !popover || !popover.classList.contains('open')) return;
-        // composedPath()는 클릭 시점의 경로라, 클릭 후 다시 그려져 DOM에서 빠진 옵션 버튼도 '팝오버 안' 클릭으로 인식한다.
-        if (!e.composedPath().includes(wrap)) popover.classList.remove('open');
-    });
+    closeOnOutsideClick('trackerFilterWrap', 'trackerFilterPopover');
 
     function roundDateToNearest(dateObj, intervalMins) { 
         if (intervalMins <= 1) return new Date(dateObj); 
@@ -191,14 +160,12 @@
     function startTimer(job) {
         currentJob = job; startTime = new Date();
         localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify({ startTime: startTime.toISOString(), job, bullets: sessionBulletEditor.getBullets() }));
-        updateTimerUI(true); renderTodoList();
-        // Use a full renderHistory() (not just updateLiveTimelineCells()) here: if "미실행 숨기기" is on
-        // and this job has no logged entries yet today, its timeline row won't exist in the DOM until
-        // a real re-render happens — a live-cell class toggle alone has nothing to attach to.
-        // renderHistory() rebuilds the grid now that currentJob/startTime are already set, so the row
-        // (kept visible by the "currently running" exception in the hide-unexecuted filter) appears
-        // immediately instead of only after some unrelated re-render.
-        renderHistory();
+        showRunningTimer();
+    }
+
+    // 기록 중 화면: 미실행 숨기기가 켜져 있으면 이 운영의 타임라인 줄이 아직 없을 수 있어 타임라인을 다시 그린다
+    function showRunningTimer() {
+        updateTimerUI(true); renderTodoList(); renderHistory();
         timerInterval = setInterval(() => {
             document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
             updateLiveTimelineCells();
@@ -240,12 +207,7 @@
             if (Array.isArray(data.bullets)) restoredBullets = data.bullets;
             else if (typeof data.bullets === 'string') restoredBullets = splitPastedTextIntoBullets(data.bullets);
             sessionBulletEditor.setBullets(restoredBullets);
-            updateTimerUI(true); renderTodoList();
-            renderHistory();
-            timerInterval = setInterval(() => {
-                document.getElementById('timerDisplay').innerText = formatTimeMs(new Date() - new Date(startTime));
-                updateLiveTimelineCells();
-            }, 1000);
+            showRunningTimer();
         }
     }
     function formatTimeMs(ms) { const s = Math.floor(ms / 1000); return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }

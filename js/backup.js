@@ -142,6 +142,8 @@
             await uploadBackupToDrive(token, data);
             localStorage.setItem(DRIVE_LAST_BACKUP_KEY, new Date().toISOString());
             localStorage.setItem(DRIVE_LAST_BACKUP_DATE_KEY, getTodayIso());
+            // 정한 백업 시각 이후에 한 백업이면 오늘 예약 백업도 한 것으로 본다 (곧바로 두 번 올리지 않게)
+            if (dateToHHMM(new Date()) >= getDriveBackupTime()) localStorage.setItem(DRIVE_SCHEDULED_DONE_DATE_KEY, getTodayIso());
             refreshDriveBackupStatus();
             return true;
         } catch (err) {
@@ -162,12 +164,8 @@
         if (!confirm('구글 드라이브 백업으로 복원하면 현재 이 기기의 데이터를 덮어씁니다. 계속할까요?')) return;
         try {
             const token = await getDriveAccessToken(true);
-            const data = await downloadBackupFromDrive(token);
-            if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...appSettings, ...data.settings }));
-            if (data.presets) localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(data.presets));
-            if (data.history) localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(data.history));
+            applyImportedData(await downloadBackupFromDrive(token));
             alert('구글 드라이브 백업에서 복원했습니다.');
-            loadSettings(); renderAll(); closeModal('exportBackupModal');
         } catch (err) {
             alert('복원에 실패했습니다: ' + err.message);
         }
@@ -180,16 +178,16 @@
         await performDriveBackup(false);
     }
 
-    // While the tab stays open, checks every 30s whether the clock has reached the user's
-    // configured backup time and (if so, and not already done today) refreshes the backup.
+    // 탭이 열려 있는 동안 30초마다 확인해, 정한 백업 시각이 지났고 오늘 아직 안 했으면 백업한다.
+    // (정각 1분만 보면 PC가 잠들어 있다 깨어난 날은 건너뛰게 되어 '지났는지'로 본다)
     function startDriveScheduledBackupWatcher() {
+        let triedDate = ''; // 실패해도 하루에 한 번만 시도 (로그인 창이 반복해서 뜨지 않게)
         setInterval(async () => {
             if (!getDriveClientId()) return;
-            const now = new Date();
-            const current = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            if (current !== getDriveBackupTime()) return;
-            if (localStorage.getItem(DRIVE_SCHEDULED_DONE_DATE_KEY) === getTodayIso()) return;
-            const ok = await performDriveBackup(false);
-            if (ok) localStorage.setItem(DRIVE_SCHEDULED_DONE_DATE_KEY, getTodayIso());
+            const today = getTodayIso();
+            if (dateToHHMM(new Date()) < getDriveBackupTime() || triedDate === today) return;
+            if (localStorage.getItem(DRIVE_SCHEDULED_DONE_DATE_KEY) === today) return;
+            triedDate = today;
+            await performDriveBackup(false);
         }, 30000);
     }

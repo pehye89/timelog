@@ -79,7 +79,7 @@
 
     function saveEditableBullets(id, bullets) {
         const history = getHistory(); const idx = history.findIndex(h => h.id === id);
-        if(idx > -1) { history[idx].bullets = bullets; localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history)); }
+        if(idx > -1) { history[idx].bullets = bullets; saveHistory(history); }
     }
 
     function makeEditable(id, cell) {
@@ -133,7 +133,7 @@
         const id = parseInt(document.getElementById('editLogTimeId').value, 10);
         if (!id) return;
         if (!confirm('해당 기록을 삭제할까요?')) return;
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(getHistory().filter(i => i.id !== id)));
+        saveHistory(getHistory().filter(i => i.id !== id));
         closeModal('editLogTimeModal');
         renderAll();
     }
@@ -145,52 +145,28 @@
         if (!s || !e) return alert('시간을 입력해주세요.');
         if (timeToMins(e) <= timeToMins(s)) return alert('종료 시간은 시작 시간보다 늦어야 합니다.');
 
-        let history = getHistory();
-        const idx = history.findIndex(h => h.id === id);
-        if (idx === -1) return;
-        const item = history[idx];
+        const history = getHistory();
+        const item = history.find(h => h.id === id);
+        if (!item) return;
 
-        let newS = new Date(`${item.date}T${s}:00`).getTime();
-        let newE = new Date(`${item.date}T${e}:00`).getTime();
+        // 같은 운영의 다른 기록과 겹치거나 붙으면 하나로 합친다 (시간 범위와 메모 모두)
+        const merged = absorbSameJobLogs(history, { date: item.date, jobId: item.jobId, exceptId: id },
+            new Date(`${item.date}T${s}:00`).getTime(), new Date(`${item.date}T${e}:00`).getTime());
 
-        // Merge with any other record of the SAME operation that now overlaps or touches
-        // (gap <= 1 min) the edited time range, combining their time span and bullets.
-        let mergedBullets = item.bullets || [];
-        let mergedAny = true;
-        while (mergedAny) {
-            mergedAny = false;
-            for (let i = 0; i < history.length; i++) {
-                const h = history[i];
-                if (h.id === id || h.date !== item.date || h.jobId !== item.jobId) continue;
-                const hS = new Date(h.startTimeObj || `${h.date}T${h.startTime}:00`).getTime();
-                const hE = new Date(h.endTimeObj || `${h.date}T${h.endTime}:00`).getTime();
-                if (Math.max(newS, hS) <= Math.min(newE, hE) + 60000) {
-                    newS = Math.min(newS, hS);
-                    newE = Math.max(newE, hE);
-                    if (h.bullets && h.bullets.length) mergedBullets = [...mergedBullets, ...h.bullets];
-                    history.splice(i, 1);
-                    mergedAny = true;
-                    break;
-                }
-            }
-        }
-
-        // A different operation's record can still legitimately conflict — warn but allow.
-        const hasCrossJobConflict = history.some(h => h.id !== id && h.date === item.date && h.jobId !== item.jobId &&
-            !(newE <= new Date(h.startTimeObj || `${h.date}T${h.startTime}:00`).getTime() ||
-              newS >= new Date(h.endTimeObj || `${h.date}T${h.endTime}:00`).getTime()));
+        // 다른 운영의 기록과 겹치는 건 막지 않고 한 번 묻는다
+        const hasCrossJobConflict = history.some(h => h.date === item.date && h.jobId !== item.jobId &&
+            merged.s < logEndMs(h) && merged.e > logStartMs(h));
         if (hasCrossJobConflict && !confirm('선택한 시간대가 다른 운영의 기록과 겹칩니다. 계속 저장하시겠습니까?')) return;
 
-        const finalIdx = history.findIndex(h => h.id === id);
-        const sObj = new Date(newS); const eObj = new Date(newE);
-        history[finalIdx].startTime = sObj.toTimeString().substring(0, 5);
-        history[finalIdx].endTime = eObj.toTimeString().substring(0, 5);
-        history[finalIdx].startTimeObj = sObj.toISOString();
-        history[finalIdx].endTimeObj = eObj.toISOString();
-        history[finalIdx].durationMs = newE - newS;
-        history[finalIdx].bullets = mergedBullets;
+        const sObj = new Date(merged.s); const eObj = new Date(merged.e);
+        Object.assign(item, {
+            startTime: dateToHHMM(sObj), endTime: dateToHHMM(eObj),
+            startTimeObj: sObj.toISOString(), endTimeObj: eObj.toISOString(),
+            durationMs: merged.e - merged.s,
+            bullets: [...(item.bullets || []), ...merged.bullets]
+        });
 
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        saveHistory(history);
         closeModal('editLogTimeModal');
         renderAll();
     }
@@ -207,31 +183,33 @@
         { key: 'memo', label: '메모', cls: 'col-memo', sortable: false, editable: 'memo' }
     ];
 
+    // 그날 기록을 운영별로 합친 표의 줄. 행 순서는 그날 처음 기록을 시작한 시각 순(정렬은 sortTimeLogRows에서).
     function buildTimeLogTableRows(dateStr) {
-        const dayHistory = getHistory()
-            .filter(h => h.date === dateStr)
-            .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
         const presetsMap = {};
         getPresets().forEach(p => { presetsMap[p.id] = p; });
-
-        // 운영별로 합산 — 행 순서는 그날 처음 기록을 시작한 시각 순
         const byJob = new Map();
-        dayHistory.forEach(h => {
-            if (!byJob.has(h.jobId)) {
-                const job = presetsMap[h.jobId] || h; // 운영 정보는 최신 값 우선, 없으면 기록 당시 값
-                byJob.set(h.jobId, { taskCode: job.taskCode || '', taskName: job.taskName || '', opsCode: job.opsCode || '', opsName: job.opsName || '', endDate: (presetsMap[h.jobId] && presetsMap[h.jobId].endDate) || '', jobId: h.jobId, ms: 0, bullets: [] });
-            }
-            const row = byJob.get(h.jobId);
-            row.ms += h.durationMs || 0;
-            if (Array.isArray(h.bullets)) row.bullets.push(...h.bullets);
-        });
-        return [...byJob.values()].map(r => ({
-            taskCode: r.taskCode, taskName: r.taskName, opsCode: r.opsCode, opsName: r.opsName,
-            jobId: r.jobId,
-            rawBullets: [...new Set(r.bullets)],
-            minutes: String(Math.round(r.ms / 60000)),
-            endDate: r.endDate,
-            memo: formatMemoPlainText(r.bullets)
+        getHistory()
+            .filter(h => h.date === dateStr)
+            .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+            .forEach(h => {
+                if (!byJob.has(h.jobId)) {
+                    const job = presetsMap[h.jobId] || h; // 운영 정보는 최신 값 우선, 없으면 기록 당시 값
+                    byJob.set(h.jobId, {
+                        jobId: h.jobId,
+                        taskCode: job.taskCode || '', taskName: job.taskName || '', opsCode: job.opsCode || '', opsName: job.opsName || '',
+                        endDate: (presetsMap[h.jobId] || {}).endDate || '',
+                        ms: 0, bullets: []
+                    });
+                }
+                const row = byJob.get(h.jobId);
+                row.ms += h.durationMs || 0;
+                if (Array.isArray(h.bullets)) row.bullets.push(...h.bullets);
+            });
+        return [...byJob.values()].map(({ ms, bullets, ...r }) => ({
+            ...r,
+            rawBullets: [...new Set(bullets)],
+            minutes: String(Math.round(ms / 60000)),
+            memo: formatMemoPlainText(bullets)
         }));
     }
 
@@ -411,7 +389,7 @@
         const presets = getPresets(); const idx = presets.findIndex(p => p.id === jobId);
         if (idx === -1) return;
         presets[idx].endDate = value || '';
-        localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+        savePresets(presets);
     }
 
     // 표의 메모는 그날 해당 운영의 여러 기록을 합친 것이라, 수정한 메모는 그날 첫 기록에 모아 저장하고
@@ -423,5 +401,5 @@
             .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
         if (!entries.length) return;
         entries.forEach((h, i) => { h.bullets = i === 0 ? bullets : []; });
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+        saveHistory(history);
     }

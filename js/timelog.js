@@ -8,13 +8,8 @@
         document.getElementById('todayBtnTimelog').classList.toggle('is-today', timelogTabDate === getTodayIso());
     }
 
-    function skipWeekend(d, direction) {
-        while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + direction);
-        return d;
-    }
-
     function changeTimelogDate(offset) {
-        const d = new Date(`${timelogTabDate}T00:00:00`);
+        const d = isoToDate(timelogTabDate);
         d.setDate(d.getDate() + offset);
         setTimelogDate(skipWeekend(d, offset));
         renderTimelogTab();
@@ -22,9 +17,7 @@
 
     function handleTimelogDateChange(val) {
         if (!val) return;
-        const d = new Date(`${val}T00:00:00`);
-        if (d.getDay() === 0 || d.getDay() === 6) alert('주말은 건너뜁니다.');
-        setTimelogDate(skipWeekend(d, 1));
+        setTimelogDate(skipWeekend(isoToDate(val), 1)); // 캘린더에서 주말은 고를 수 없다
         renderTimelogTab();
     }
 
