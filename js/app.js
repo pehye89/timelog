@@ -19,7 +19,7 @@
     });
 
     function switchTab(tab) { 
-        ['Tracker', 'Management', 'Timelog', 'Weekly'].forEach(t => { 
+        ['Tracker', 'Management', 'Timelog', 'Weekly', 'Memo'].forEach(t => { 
             document.getElementById(`tab${t}View`).classList.add('hidden'); 
             document.getElementById(`tabBtn${t}`).classList.remove('active'); 
         }); 
@@ -31,4 +31,4 @@
         renderAll(); 
     }
 
-    function renderAll() { renderTodoList(); renderHistory(); renderManagement(); renderTimelogTab(); renderWeekly(); }
+    function renderAll() { renderTodoList(); renderHistory(); renderManagement(); renderTimelogTab(); renderWeekly(); renderMemoTab(); }

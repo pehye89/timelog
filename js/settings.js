@@ -103,7 +103,7 @@
     }
 
     function exportData() {
-        const data = { settings: appSettings, presets: getPresets(), history: getHistory() };
+        const data = { settings: appSettings, presets: getPresets(), history: getHistory(), memos: getMemos() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `timelog_export_${getTodayIso()}.json`; a.click(); URL.revokeObjectURL(url);
@@ -114,10 +114,12 @@
     function applyImportedData(data) {
         if (!data || typeof data !== 'object'
             || (data.presets && !Array.isArray(data.presets))
-            || (data.history && !Array.isArray(data.history))) throw new Error('데이터 형식이 올바르지 않습니다.');
+            || (data.history && !Array.isArray(data.history))
+            || (data.memos && !Array.isArray(data.memos))) throw new Error('데이터 형식이 올바르지 않습니다.');
         if (data.settings) localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({ ...appSettings, ...data.settings }));
         if (data.presets) savePresets(data.presets);
         if (data.history) saveHistory(data.history);
+        if (data.memos) saveMemos(data.memos); // 메모가 없는 예전 백업이면 지금 메모를 그대로 둔다
         loadSettings(); renderAll(); closeModal('exportBackupModal');
     }
 

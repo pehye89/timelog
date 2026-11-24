@@ -138,7 +138,7 @@
     async function performDriveBackup(interactive) {
         try {
             const token = await getDriveAccessToken(interactive);
-            const data = { settings: appSettings, presets: getPresets(), history: getHistory() };
+            const data = { settings: appSettings, presets: getPresets(), history: getHistory(), memos: getMemos() };
             await uploadBackupToDrive(token, data);
             localStorage.setItem(DRIVE_LAST_BACKUP_KEY, new Date().toISOString());
             localStorage.setItem(DRIVE_LAST_BACKUP_DATE_KEY, getTodayIso());
