@@ -29,6 +29,7 @@
         // 시간로그 탭은 타이머 탭에서 보던 날짜로 열린다 (주간보고 탭과 같은 방식)
         if(tab === 'timelog') { setTimelogDate(isoToDate(document.getElementById('hiddenDateInput').value)); }
         renderAll(); 
+        if(tab === 'memo') focusMemoQuickInput(); // 메모를 열면 바로 쓸 수 있게
     }
 
     function renderAll() { renderTodoList(); renderHistory(); renderManagement(); renderTimelogTab(); renderWeekly(); renderMemoTab(); }

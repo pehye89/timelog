@@ -12,16 +12,22 @@
     function escapeHtml(str) { return str ? String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : ''; }
 
     // Brief, non-blocking toast notification that fades in and auto-dismisses after ~1.5s.
-    function showToast(message) {
+    // opts.actionLabel/onAction을 주면 '되돌리기' 같은 버튼이 붙고 조금 더 오래 보인다
+    function showToast(message, opts = {}) {
         const el = document.createElement('div');
         el.className = 'toast-notice';
         el.textContent = message;
+        const hide = () => { el.classList.remove('toast-notice--visible'); setTimeout(() => el.remove(), 200); };
+        if (opts.actionLabel && opts.onAction) {
+            el.classList.add('toast-notice--action');
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'toast-notice-btn'; btn.textContent = opts.actionLabel;
+            btn.onclick = () => { opts.onAction(); hide(); };
+            el.appendChild(btn);
+        }
         document.body.appendChild(el);
         requestAnimationFrame(() => el.classList.add('toast-notice--visible'));
-        setTimeout(() => {
-            el.classList.remove('toast-notice--visible');
-            setTimeout(() => el.remove(), 200);
-        }, 1500);
+        setTimeout(hide, opts.actionLabel ? 5000 : 1500);
     }
 
     function truncate(str, max) { if(!str) return ''; return str.length > max ? str.substring(0, max) + '...' : str; }
